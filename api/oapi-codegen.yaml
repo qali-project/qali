@@ -1,0 +1,8 @@
+# Go server types and chi router bindings generated from api/openapi.yaml.
+# The output path is passed with -o (go:generate in httpserver, `make fmt-check`).
+package: openapi
+generate:
+  models: true
+  chi-server: true
+output-options:
+  skip-prune: true
