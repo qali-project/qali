@@ -1,0 +1,101 @@
+version: "2"
+
+run:
+  build-tags: [integration]
+
+linters:
+  default: standard
+  enable:
+    - bodyclose
+    - depguard
+    - errorlint
+    - forbidigo
+    - gosec
+    - misspell
+    - noctx
+    - usestdlibvars
+  settings:
+    depguard:
+      rules:
+        # AGENTS.md: domain packages hold entities, policies, and domain errors
+        # only; no HTTP, SQL, or framework imports.
+        domain:
+          list-mode: lax
+          files:
+            - "**/internal/*/domain/**"
+          deny:
+            - pkg: net/http
+              desc: domain code must not depend on HTTP
+            - pkg: database/sql
+              desc: domain code must not depend on SQL
+            - pkg: github.com/jackc/pgx
+              desc: domain code must not depend on PostgreSQL drivers
+            - pkg: github.com/go-chi/chi
+              desc: domain code must not depend on the router
+            - pkg: github.com/qali-project/qali/internal/platform/httpserver
+              desc: domain code must not depend on adapters
+        # Feature repositories receive a scoped transaction (db.Querier,
+        # db.WriteTx); they never open connections or pools themselves.
+        feature-adapters:
+          list-mode: lax
+          files:
+            - "**/internal/*/adapter/**"
+            - "!**/internal/platform/**"
+          deny:
+            - pkg: database/sql
+              desc: use the scoped transaction from internal/platform/db
+            - pkg: github.com/jackc/pgx/v5/pgxpool
+              desc: use the scoped transaction from internal/platform/db
+            - pkg: github.com/jackc/pgx/v5/stdlib
+              desc: use the scoped transaction from internal/platform/db
+        # Test infrastructure never reaches production code.
+        production:
+          list-mode: lax
+          files:
+            - "**/internal/**"
+            - "**/cmd/**"
+            - "!$test"
+            - "!**/internal/platform/db/dbtest/**"
+          deny:
+            - pkg: github.com/qali-project/qali/internal/platform/db/dbtest
+              desc: test harness only
+            - pkg: github.com/testcontainers/testcontainers-go
+              desc: test harness only
+    forbidigo:
+      analyze-types: true
+      forbid:
+        - pattern: ^time\.Now$
+          msg: obtain time through the Clock interface (ADR-0004)
+        - pattern: ^db\.Store\.PlatformWrite$
+          msg: PlatformWrite skips the audit requirement; only platform bookkeeping may use it
+  exclusions:
+    generated: strict
+    rules:
+      # Developer tools are not product code and may read the wall clock.
+      - path: ^tools/
+        linters: [forbidigo]
+      - path: ^internal/platform/clock/
+        linters: [forbidigo]
+      - path: ^(internal/platform/|test/integration/|internal/identity/app/bookkeeping\.go$)
+        linters: [forbidigo]
+        text: PlatformWrite
+      # Test fixtures deliberately contain fake credentials and secret-named
+      # fields; gitleaks still scans them for real secrets.
+      - path: _test\.go$
+        linters: [gosec]
+        text: "G101|G117|G304"
+      # Developer tools open paths given on their own command line.
+      - path: ^tools/
+        linters: [gosec]
+        text: "G304|G703"
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/qali-project/qali
+  exclusions:
+    generated: strict

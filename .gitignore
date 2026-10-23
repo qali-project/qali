@@ -1,0 +1,33 @@
+# Build outputs
+/bin/
+*.exe
+*.test
+*.prof
+/internal/platform/webui/dist/app/
+/web/dist/
+
+# Dependencies and test output
+node_modules/
+/web/playwright-report/
+/web/test-results/
+coverage/
+
+# Editor and operating-system files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Local instructions and state for coding agents
+AGENTS.md
+CLAUDE.md
+.agents/
+.codex/
+
+# Local configuration and secrets never enter version control
+/deploy/compose/secrets/
+.env
+.env.*
+!.env.example
+*.key
+*.pem

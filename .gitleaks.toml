@@ -1,0 +1,17 @@
+title = "Qali secret scanning"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Build outputs, dependencies, and lockfiles (integrity hashes are not secrets)"
+paths = [
+  '''(^|/)node_modules/''',
+  '''(^|/)\.git/''',
+  '''^bin/''',
+  '''^internal/platform/webui/dist/app/''',
+  '''^web/(playwright-report|test-results)/''',
+  '''(^|/)go\.sum$''',
+  '''^tools/mod/.*\.sum$''',
+  '''(^|/)package-lock\.json$''',
+]
