@@ -22,6 +22,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"time"
@@ -263,6 +264,9 @@ func live(secretsDir string) error {
 	if err != nil {
 		return err
 	}
+	if err := prepareComposeSecrets(abs); err != nil {
+		return err
+	}
 	ctx := context.Background()
 	env := []string{
 		"QALI_DOMAIN=localhost", "QALI_TLS=internal", "QALI_HTTPS_PORT=" + livePort,
@@ -273,6 +277,7 @@ func live(secretsDir string) error {
 	}
 	defer func() { _ = dockerCompose(ctx, env, "down", "--volumes", "--remove-orphans").Run() }()
 	if err := dockerCompose(ctx, env, "up", "--detach", "--quiet-pull").Run(); err != nil {
+		_ = dockerCompose(ctx, env, "logs", "--no-color", "--tail", "50").Run()
 		return fmt.Errorf("docker compose up: %w", err)
 	}
 
@@ -289,6 +294,32 @@ func live(secretsDir string) error {
 		return err
 	}
 	fmt.Println("deploycheck: live deployment OK (migrated, ready, only 443/tcp published)")
+	return nil
+}
+
+// prepareComposeSecrets adjusts only the disposable secrets generated for the
+// live deployment check. On Linux, Compose implements file-backed secrets as
+// bind mounts and preserves the host ownership and mode. The fixed non-root
+// container users therefore cannot read the generator's secure 0600 files.
+// These values are random test fixtures under bin/, so make them read-only and
+// container-readable immediately before starting the short-lived stack.
+func prepareComposeSecrets(dir string) error {
+	return prepareComposeSecretsForOS(dir, runtime.GOOS, os.Chmod)
+}
+
+func prepareComposeSecretsForOS(dir, goos string, chmod func(string, os.FileMode) error) error {
+	if goos == "windows" {
+		return nil
+	}
+	for _, name := range []string{
+		"database_url", "migration_database_url", "kek", "token_pepper", "password_pepper",
+		"postgres_password", "migrator_password", "app_password",
+	} {
+		path := filepath.Join(dir, name)
+		if err := chmod(path, 0o444); err != nil {
+			return fmt.Errorf("make disposable Compose secret %s container-readable: %w", name, err)
+		}
+	}
 	return nil
 }
 

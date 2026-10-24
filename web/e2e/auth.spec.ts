@@ -94,6 +94,7 @@ test("owner journey: setup, MFA, sign-out, sign-in, recovery", async ({ page }, 
   // Recover with a single-use code; all sessions end.
   await signOut(page);
   await page.getByRole("link", { name: "Use a recovery code" }).click();
+  await expect(page.getByRole("heading", { name: "Recover your account" })).toBeVisible();
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Recovery code").fill(codes[0]!);
   await page.getByLabel("New password").fill(recoveredPassword);
