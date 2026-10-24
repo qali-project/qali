@@ -18,6 +18,11 @@ updates:
       interval: weekly
     cooldown:
       default-days: 14
+    ignore:
+      # Major frontend upgrades are coordinated with the supported toolchain.
+      # Dependabot security updates are not suppressed by update-types.
+      - dependency-name: "*"
+        update-types: [version-update:semver-major]
     groups:
       web-minor-patch:
         update-types: [minor, patch]
@@ -35,3 +40,14 @@ updates:
       interval: weekly
     cooldown:
       default-days: 14
+    ignore:
+      # Keep runtime images on the documented Node and Go release lines.
+      # Minor/major migrations also require CI and platform-doc updates.
+      - dependency-name: node
+        update-types:
+          - version-update:semver-minor
+          - version-update:semver-major
+      - dependency-name: golang
+        update-types:
+          - version-update:semver-minor
+          - version-update:semver-major
