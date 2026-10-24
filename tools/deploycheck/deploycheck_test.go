@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -157,6 +158,30 @@ func TestMalformedInputIsAnError(t *testing.T) {
 	}
 	if _, err := CheckCompose([]byte(`{"services":{}}`)); err == nil {
 		t.Fatal("configuration without the required services accepted")
+	}
+}
+
+func TestPrepareComposeSecretsMakesFilesContainerReadable(t *testing.T) {
+	dir := t.TempDir()
+	changed := map[string]os.FileMode{}
+	chmod := func(path string, mode os.FileMode) error {
+		changed[path] = mode
+		return nil
+	}
+	if err := prepareComposeSecretsForOS(dir, "linux", chmod); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{
+		"database_url", "migration_database_url", "kek", "token_pepper", "password_pepper",
+		"postgres_password", "migrator_password", "app_password",
+	} {
+		path := filepath.Join(dir, name)
+		if got := changed[path]; got != 0o444 {
+			t.Fatalf("secret %s mode = %04o, want 0444 for the disposable Compose check", name, got)
+		}
+	}
+	if len(changed) != 8 {
+		t.Fatalf("changed %d secret files, want 8", len(changed))
 	}
 }
 

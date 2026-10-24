@@ -14,8 +14,9 @@ features used by the backend, the frontend build, and the E2E matrix.
 
 ### Go
 
-- The `go` directive in `go.mod` is `1.26`. The exact `toolchain` patch
-  release is pinned in MVP-01 and updated only through reviewed dependency
+- The `go` directive in `go.mod` is `1.26`. The exact patch release is pinned
+  by both the `toolchain` directive and `.go-version`, so local builds, CI, and
+  container builds stay aligned. It changes only through reviewed dependency
   updates.
 - Developers with an older local Go use `GOTOOLCHAIN=auto` to obtain the pinned
   toolchain; the build never depends on the developer's installed version.
