@@ -30,6 +30,28 @@ const MVP_ROLES = ["owner", "workspace_admin", "qa_lead", "tester", "viewer"];
 const NON_ADMIN_ROLES = ["qa_lead", "tester", "viewer"];
 const RESULTS = ["PASS", "FAIL", "PENDING", "N/A"];
 
+// Public checkouts contain user documentation and the executable RBAC catalog.
+// Internal plans, decisions, and acceptance evidence are maintained privately.
+export function checkPublicRepository(root) {
+  const errors = [];
+  const report = (file, message) => errors.push(`${file}: ${message}`);
+  for (const directory of ["docs", "acceptance"]) {
+    if (exists(root, directory)) report(directory, "internal documentation must remain outside the public checkout");
+  }
+  const docs = listMarkdown(root)
+    .filter((rel) => !["AGENTS.md", "CLAUDE.md"].includes(path.basename(rel)))
+    .map((rel) => ({ rel, ...parseMarkdown(read(root, rel)) }));
+  checkLinks(root, docs, new Map(docs.map((d) => [d.rel, d.anchors])), report);
+  const catalogPath = "internal/authz/permission-catalog.json";
+  try {
+    const catalog = JSON.parse(read(root, catalogPath));
+    for (const message of validateCatalog(catalog)) report(catalogPath, message);
+  } catch (err) {
+    report(catalogPath, `cannot read catalog: ${err.message}`);
+  }
+  return errors;
+}
+
 export function checkRepository(root) {
   const errors = [];
   const report = (file, message) => errors.push(`${file}: ${message}`);
@@ -440,6 +462,12 @@ function read(root, rel) {
 }
 
 function main([command = "check", root = "."]) {
+  if (command === "check-public") {
+    const errors = checkPublicRepository(root);
+    for (const error of errors) console.error(error);
+    console.log(errors.length ? `doccheck: ${errors.length} error(s)` : "doccheck: OK");
+    return errors.length ? 1 : 0;
+  }
   if (command === "generate") {
     const catalog = JSON.parse(read(root, CATALOG));
     fs.writeFileSync(path.join(root, MATRIX), renderPermissionMatrix(catalog));

@@ -57,7 +57,7 @@ generate: $(WEB_DEPS) ## Regenerate OpenAPI server types, the TypeScript client,
 	$(SQLC) generate
 	cd web && $(NPM) run --silent generate
 
-fmt: generate docs-generate ## Format code and regenerate generated files
+fmt: generate ## Format code and regenerate generated files
 	$(call tool,golangci-lint) fmt ./...
 	$(GO) mod tidy
 	cd web && npx prettier --write --log-level warn .
@@ -74,10 +74,10 @@ fmt-check: $(WEB_DEPS) ## Fail on unformatted code, untidy modules, or stale gen
 	stale=0; \
 	cmp -s "$$tmp/openapi.gen.go" internal/platform/httpserver/openapi/openapi.gen.go || { echo "stale: internal/platform/httpserver/openapi/openapi.gen.go"; stale=1; }; \
 	cmp -s "$$tmp/api.ts" web/src/generated/api.ts || { echo "stale: web/src/generated/api.ts"; stale=1; }; \
-	$(GO) run ./tools/permgen docs/rbac/permission-catalog.json "$$tmp/catalog_gen.go"; \
+	$(GO) run ./tools/permgen internal/authz/permission-catalog.json "$$tmp/catalog_gen.go"; \
 	cmp -s "$$tmp/catalog_gen.go" internal/authz/catalog_gen.go || { echo "stale: internal/authz/catalog_gen.go"; stale=1; }; \
 	if [ $$stale = 1 ]; then echo "generated files are stale; run make generate" >&2; exit 1; fi
-	$(NODE) tools/doccheck/doccheck.mjs check . >/dev/null
+	$(NODE) tools/doccheck/doccheck.mjs check-public . >/dev/null
 
 lint: $(WEB_DEPS) docs-check ## Static analysis, test hygiene, secret and vulnerability scans
 	$(call tool,golangci-lint) run ./...
@@ -152,11 +152,11 @@ clean: ## Remove build outputs
 
 NODE ?= node
 
-docs-check: ## Validate links, IDs, ADRs, permission catalog, and acceptance maps
-	$(NODE) tools/doccheck/doccheck.mjs check .
+docs-check: ## Validate public documentation links and the permission catalog
+	$(NODE) tools/doccheck/doccheck.mjs check-public .
 
 docs-test: ## Run the documentation checker's own tests
 	$(NODE) --test "tools/doccheck/*.test.mjs"
 
-docs-generate: ## Regenerate docs/rbac/permission-matrix.md from the catalog
-	$(NODE) tools/doccheck/doccheck.mjs generate .
+docs-generate: ## Regenerate the executable permission catalog
+	$(GO) run ./tools/permgen internal/authz/permission-catalog.json internal/authz/catalog_gen.go

@@ -148,7 +148,7 @@ func TestPepperValidation(t *testing.T) {
 // The credential types implemented here must be exactly the ones frozen in the
 // permission catalog (ADR-0006, ADR-0007).
 func TestTokenTypesMatchPermissionCatalog(t *testing.T) {
-	data, err := os.ReadFile("../../../docs/rbac/permission-catalog.json")
+	data, err := os.ReadFile("../../../internal/authz/permission-catalog.json")
 	if err != nil {
 		t.Fatal(err)
 	}

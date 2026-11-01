@@ -22,7 +22,7 @@ type TokenType struct {
 	Prefix string
 }
 
-// Credential types issued in the MVP (docs/rbac/permission-catalog.json).
+// Credential types issued in the MVP (internal/authz/permission-catalog.json).
 var (
 	TokenSession       = TokenType{Name: "session", Prefix: "qali_sess_"}
 	TokenPasswordReset = TokenType{Name: "password_reset", Prefix: "qali_reset_"}

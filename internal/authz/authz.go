@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 )
 
-//go:generate go run ../../tools/permgen ../../docs/rbac/permission-catalog.json catalog_gen.go
+//go:generate go run ../../tools/permgen permission-catalog.json catalog_gen.go
 
 // Permission is a catalog permission ID such as "repository.update".
 type Permission string

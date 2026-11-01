@@ -45,7 +45,7 @@ type catalog struct {
 
 func loadCatalog(t *testing.T) catalog {
 	t.Helper()
-	b, err := os.ReadFile("../../docs/rbac/permission-catalog.json")
+	b, err := os.ReadFile("../../internal/authz/permission-catalog.json")
 	if err != nil {
 		t.Fatal(err)
 	}

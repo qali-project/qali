@@ -1,0 +1,180 @@
+{
+  "version": 1,
+  "description": "MVP permission catalog. Normative source for role grants, project access levels, and credential types. See ADR-0007. Regenerate permission-matrix.md with `make docs-generate` after editing.",
+  "conditions": {
+    "all": "Every resource of this type the principal can reach through workspace membership and project access.",
+    "own": "Only resources the principal created.",
+    "assigned": "Only run cases assigned to the principal, or not assigned to anyone, in runs the principal can access."
+  },
+  "permissions": [
+    { "id": "workspace.read", "kind": "read", "scope": "workspace", "administrative": false, "sensitive": false, "ownerOnly": false, "description": "See the workspace name and basic settings needed to use it." },
+    { "id": "workspace.update", "kind": "write", "scope": "workspace", "administrative": true, "sensitive": false, "ownerOnly": false, "description": "Change workspace name and general settings." },
+    { "id": "workspace.transfer_ownership", "kind": "write", "scope": "workspace", "administrative": true, "sensitive": true, "ownerOnly": true, "description": "Transfer the Owner role to another member." },
+
+    { "id": "security.read", "kind": "read", "scope": "workspace", "administrative": true, "sensitive": false, "ownerOnly": false, "description": "View security policy, identity provider status, and session policy without secrets." },
+    { "id": "security.update", "kind": "write", "scope": "workspace", "administrative": true, "sensitive": true, "ownerOnly": false, "description": "Change session, MFA, and local-login policy." },
+    { "id": "security.manage_sso", "kind": "write", "scope": "workspace", "administrative": true, "sensitive": true, "ownerOnly": false, "description": "Configure, verify, or remove the generic OIDC provider." },
+    { "id": "security.manage_sessions", "kind": "write", "scope": "workspace", "administrative": true, "sensitive": false, "ownerOnly": false, "description": "List and revoke other members' sessions." },
+    { "id": "security.manage_break_glass", "kind": "write", "scope": "workspace", "administrative": true, "sensitive": true, "ownerOnly": true, "description": "Manage the protected break-glass local login." },
+
+    { "id": "members.read", "kind": "read", "scope": "workspace", "administrative": true, "sensitive": false, "ownerOnly": false, "description": "View the member administration list with emails, roles, and status." },
+    { "id": "members.invite", "kind": "write", "scope": "workspace", "administrative": true, "sensitive": false, "ownerOnly": false, "description": "Create and revoke invitations. Inviting with an administrative role also requires members.update_role." },
+    { "id": "members.update_role", "kind": "write", "scope": "workspace", "administrative": true, "sensitive": true, "ownerOnly": false, "description": "Change a member's workspace role." },
+    { "id": "members.deactivate", "kind": "write", "scope": "workspace", "administrative": true, "sensitive": false, "ownerOnly": false, "description": "Deactivate or reactivate a member of this workspace; access to the workspace ends at the next request. Deactivation is workspace-local: the user's sessions stay valid for other workspaces, while credentials bound to this workspace stop working." },
+
+    { "id": "projects.create", "kind": "write", "scope": "workspace", "administrative": true, "sensitive": false, "ownerOnly": false, "description": "Create a project." },
+    { "id": "projects.read", "kind": "read", "scope": "project", "administrative": false, "sensitive": false, "ownerOnly": false, "description": "See an accessible project, its non-secret settings, and member display names." },
+    { "id": "projects.update", "kind": "write", "scope": "project", "administrative": true, "sensitive": false, "ownerOnly": false, "description": "Change project name, code, description, visibility, and settings." },
+    { "id": "projects.archive", "kind": "write", "scope": "project", "administrative": true, "sensitive": false, "ownerOnly": false, "description": "Archive or unarchive a project." },
+    { "id": "projects.manage_access", "kind": "write", "scope": "project", "administrative": true, "sensitive": false, "ownerOnly": false, "description": "Add or remove direct project members and set their access level." },
+
+    { "id": "repository.read", "kind": "read", "scope": "project", "administrative": false, "sensitive": false, "ownerOnly": false, "description": "Read suites, cases, revisions, tags, and case attachments." },
+    { "id": "repository.create", "kind": "write", "scope": "project", "administrative": false, "sensitive": false, "ownerOnly": false, "description": "Create suites and cases." },
+    { "id": "repository.update", "kind": "write", "scope": "project", "administrative": false, "sensitive": false, "ownerOnly": false, "description": "Edit, move, and attach files to suites and cases." },
+    { "id": "repository.delete", "kind": "write", "scope": "project", "administrative": false, "sensitive": false, "ownerOnly": false, "description": "Soft-delete suites and cases." },
+    { "id": "repository.restore", "kind": "write", "scope": "project", "administrative": false, "sensitive": false, "ownerOnly": false, "description": "Restore soft-deleted suites and cases or restore a case revision." },
+
+    { "id": "plans.read", "kind": "read", "scope": "project", "administrative": false, "sensitive": false, "ownerOnly": false, "description": "Read test plans and environments." },
+    { "id": "plans.create", "kind": "write", "scope": "project", "administrative": false, "sensitive": false, "ownerOnly": false, "description": "Create test plans and environments." },
+    { "id": "plans.update", "kind": "write", "scope": "project", "administrative": false, "sensitive": false, "ownerOnly": false, "description": "Edit test plans and environments." },
+    { "id": "plans.delete", "kind": "write", "scope": "project", "administrative": false, "sensitive": false, "ownerOnly": false, "description": "Soft-delete test plans and environments." },
+
+    { "id": "runs.read", "kind": "read", "scope": "project", "administrative": false, "sensitive": false, "ownerOnly": false, "description": "Read runs, run-case snapshots, assignment, and progress." },
+    { "id": "runs.create", "kind": "write", "scope": "project", "administrative": false, "sensitive": false, "ownerOnly": false, "description": "Create express or configured runs." },
+    { "id": "runs.update", "kind": "write", "scope": "project", "administrative": false, "sensitive": false, "ownerOnly": false, "description": "Edit run metadata and case selection before completion." },
+    { "id": "runs.delete", "kind": "write", "scope": "project", "administrative": false, "sensitive": false, "ownerOnly": false, "description": "Soft-delete a run." },
+    { "id": "runs.assign", "kind": "write", "scope": "project", "administrative": false, "sensitive": false, "ownerOnly": false, "description": "Assign or reassign run cases to members." },
+    { "id": "runs.execute", "kind": "write", "scope": "project", "administrative": false, "sensitive": false, "ownerOnly": false, "description": "Start, pause, and resume manual execution of run cases." },
+    { "id": "runs.complete", "kind": "write", "scope": "project", "administrative": false, "sensitive": false, "ownerOnly": false, "description": "Complete or abort a run." },
+
+    { "id": "results.read", "kind": "read", "scope": "project", "administrative": false, "sensitive": false, "ownerOnly": false, "description": "Read result attempts, step results, and evidence." },
+    { "id": "results.submit_manual", "kind": "write", "scope": "project", "administrative": false, "sensitive": false, "ownerOnly": false, "description": "Submit a manual result attempt, including a superseding correction." },
+    { "id": "results.attach", "kind": "write", "scope": "project", "administrative": false, "sensitive": false, "ownerOnly": false, "description": "Attach evidence to a result attempt." },
+
+    { "id": "defects.read", "kind": "read", "scope": "project", "administrative": false, "sensitive": false, "ownerOnly": false, "description": "Read internal defects and their links." },
+    { "id": "defects.create", "kind": "write", "scope": "project", "administrative": false, "sensitive": false, "ownerOnly": false, "description": "Create an internal defect, including from a negative result." },
+    { "id": "defects.update", "kind": "write", "scope": "project", "administrative": false, "sensitive": false, "ownerOnly": false, "description": "Edit defect fields, lifecycle, and result links." },
+    { "id": "defects.delete", "kind": "write", "scope": "project", "administrative": false, "sensitive": false, "ownerOnly": false, "description": "Soft-delete a defect." },
+    { "id": "defects.link_external", "kind": "write", "scope": "project", "administrative": false, "sensitive": false, "ownerOnly": false, "description": "Search, create, and link external issues through an installed, mapped integration." },
+
+    { "id": "reports.read", "kind": "read", "scope": "project", "administrative": false, "sensitive": false, "ownerOnly": false, "description": "View run progress, status counts, history, and duration reports." },
+    { "id": "reports.export", "kind": "read", "scope": "project", "administrative": false, "sensitive": false, "ownerOnly": false, "description": "Export authorized report rows as CSV." },
+
+    { "id": "integrations.read", "kind": "read", "scope": "workspace", "administrative": true, "sensitive": false, "ownerOnly": false, "description": "View installations, webhooks, mappings, health, and delivery history without secrets." },
+    { "id": "integrations.install", "kind": "write", "scope": "workspace", "administrative": true, "sensitive": true, "ownerOnly": false, "description": "Install or reauthorize an integration or webhook endpoint." },
+    { "id": "integrations.configure", "kind": "write", "scope": "workspace", "administrative": true, "sensitive": false, "ownerOnly": false, "description": "Change project mappings, event filters, and status mappings." },
+    { "id": "integrations.rotate_secret", "kind": "write", "scope": "workspace", "administrative": true, "sensitive": true, "ownerOnly": false, "description": "Rotate integration credentials or webhook signing secrets." },
+    { "id": "integrations.retry_delivery", "kind": "write", "scope": "workspace", "administrative": true, "sensitive": false, "ownerOnly": false, "description": "Retry a failed or dead-lettered delivery." },
+    { "id": "integrations.remove", "kind": "write", "scope": "workspace", "administrative": true, "sensitive": true, "ownerOnly": false, "description": "Disable or uninstall an integration." },
+
+    { "id": "credentials.manage_ci", "kind": "write", "scope": "project", "administrative": true, "sensitive": true, "ownerOnly": false, "description": "Issue, rotate, and revoke project CI credentials." },
+
+    { "id": "mcp.connect", "kind": "write", "scope": "workspace", "administrative": false, "sensitive": false, "ownerOnly": false, "description": "Issue and revoke one's own MCP tokens." },
+    { "id": "mcp.read_tools", "kind": "read", "scope": "project", "administrative": false, "sensitive": false, "ownerOnly": false, "description": "Use read-only MCP resources and tools, limited by the holder's other read permissions." },
+
+    { "id": "audit.read", "kind": "read", "scope": "workspace", "administrative": true, "sensitive": false, "ownerOnly": false, "description": "Read the audit and security event log." },
+    { "id": "audit.export", "kind": "read", "scope": "workspace", "administrative": true, "sensitive": true, "ownerOnly": false, "description": "Export audit events." },
+
+    { "id": "operations.read_diagnostics", "kind": "read", "scope": "workspace", "administrative": true, "sensitive": true, "ownerOnly": false, "description": "View protected diagnostics: version, migrations, job backlog, storage health." },
+    { "id": "operations.manage_jobs", "kind": "write", "scope": "workspace", "administrative": true, "sensitive": false, "ownerOnly": false, "description": "Retry or discard dead-lettered jobs." }
+  ],
+  "roles": [
+    {
+      "id": "owner",
+      "name": "Owner",
+      "grants": {
+        "workspace.read": "all", "workspace.update": "all", "workspace.transfer_ownership": "all",
+        "security.read": "all", "security.update": "all", "security.manage_sso": "all", "security.manage_sessions": "all", "security.manage_break_glass": "all",
+        "members.read": "all", "members.invite": "all", "members.update_role": "all", "members.deactivate": "all",
+        "projects.create": "all", "projects.read": "all", "projects.update": "all", "projects.archive": "all", "projects.manage_access": "all",
+        "repository.read": "all", "repository.create": "all", "repository.update": "all", "repository.delete": "all", "repository.restore": "all",
+        "plans.read": "all", "plans.create": "all", "plans.update": "all", "plans.delete": "all",
+        "runs.read": "all", "runs.create": "all", "runs.update": "all", "runs.delete": "all", "runs.assign": "all", "runs.execute": "all", "runs.complete": "all",
+        "results.read": "all", "results.submit_manual": "all", "results.attach": "all",
+        "defects.read": "all", "defects.create": "all", "defects.update": "all", "defects.delete": "all", "defects.link_external": "all",
+        "reports.read": "all", "reports.export": "all",
+        "integrations.read": "all", "integrations.install": "all", "integrations.configure": "all", "integrations.rotate_secret": "all", "integrations.retry_delivery": "all", "integrations.remove": "all",
+        "credentials.manage_ci": "all",
+        "mcp.connect": "all", "mcp.read_tools": "all",
+        "audit.read": "all", "audit.export": "all",
+        "operations.read_diagnostics": "all", "operations.manage_jobs": "all"
+      }
+    },
+    {
+      "id": "workspace_admin",
+      "name": "Workspace Administrator",
+      "grants": {
+        "workspace.read": "all", "workspace.update": "all",
+        "security.read": "all", "security.update": "all", "security.manage_sso": "all", "security.manage_sessions": "all",
+        "members.read": "all", "members.invite": "all", "members.update_role": "all", "members.deactivate": "all",
+        "projects.create": "all", "projects.read": "all", "projects.update": "all", "projects.archive": "all", "projects.manage_access": "all",
+        "repository.read": "all", "repository.create": "all", "repository.update": "all", "repository.delete": "all", "repository.restore": "all",
+        "plans.read": "all", "plans.create": "all", "plans.update": "all", "plans.delete": "all",
+        "runs.read": "all", "runs.create": "all", "runs.update": "all", "runs.delete": "all", "runs.assign": "all", "runs.execute": "all", "runs.complete": "all",
+        "results.read": "all", "results.submit_manual": "all", "results.attach": "all",
+        "defects.read": "all", "defects.create": "all", "defects.update": "all", "defects.delete": "all", "defects.link_external": "all",
+        "reports.read": "all", "reports.export": "all",
+        "integrations.read": "all", "integrations.install": "all", "integrations.configure": "all", "integrations.rotate_secret": "all", "integrations.retry_delivery": "all", "integrations.remove": "all",
+        "credentials.manage_ci": "all",
+        "mcp.connect": "all", "mcp.read_tools": "all",
+        "audit.read": "all", "audit.export": "all",
+        "operations.read_diagnostics": "all", "operations.manage_jobs": "all"
+      }
+    },
+    {
+      "id": "qa_lead",
+      "name": "QA Lead",
+      "grants": {
+        "workspace.read": "all",
+        "projects.read": "all",
+        "repository.read": "all", "repository.create": "all", "repository.update": "all", "repository.delete": "all", "repository.restore": "all",
+        "plans.read": "all", "plans.create": "all", "plans.update": "all", "plans.delete": "all",
+        "runs.read": "all", "runs.create": "all", "runs.update": "all", "runs.delete": "all", "runs.assign": "all", "runs.execute": "all", "runs.complete": "all",
+        "results.read": "all", "results.submit_manual": "all", "results.attach": "all",
+        "defects.read": "all", "defects.create": "all", "defects.update": "all", "defects.delete": "all", "defects.link_external": "all",
+        "reports.read": "all", "reports.export": "all",
+        "mcp.connect": "all", "mcp.read_tools": "all"
+      }
+    },
+    {
+      "id": "tester",
+      "name": "Tester",
+      "grants": {
+        "workspace.read": "all",
+        "projects.read": "all",
+        "repository.read": "all", "repository.create": "all", "repository.update": "all", "repository.delete": "own", "repository.restore": "own",
+        "plans.read": "all", "plans.create": "all", "plans.update": "own",
+        "runs.read": "all", "runs.create": "all", "runs.update": "own", "runs.execute": "assigned", "runs.complete": "own",
+        "results.read": "all", "results.submit_manual": "assigned", "results.attach": "assigned",
+        "defects.read": "all", "defects.create": "all", "defects.update": "all", "defects.link_external": "all",
+        "reports.read": "all", "reports.export": "all"
+      }
+    },
+    {
+      "id": "viewer",
+      "name": "Viewer",
+      "grants": {
+        "workspace.read": "all",
+        "projects.read": "all",
+        "repository.read": "all",
+        "plans.read": "all",
+        "runs.read": "all",
+        "results.read": "all",
+        "defects.read": "all",
+        "reports.read": "all"
+      }
+    }
+  ],
+  "projectAccessLevels": [
+    { "id": "contributor", "maxKind": "write", "description": "Role grants apply in full within the project." },
+    { "id": "viewer", "maxKind": "read", "description": "Only read-kind role grants apply within the project." }
+  ],
+  "credentialTypes": [
+    { "id": "session", "tokenPrefix": "qali_sess_", "scopes": [] },
+    { "id": "password_reset", "tokenPrefix": "qali_reset_", "scopes": [] },
+    { "id": "invitation", "tokenPrefix": "qali_inv_", "scopes": [] },
+    { "id": "setup", "tokenPrefix": "qali_setup_", "scopes": [] },
+    { "id": "ci", "tokenPrefix": "qali_ci_", "scopes": ["runs:create", "results:submit", "artifacts:upload", "runs:complete"] },
+    { "id": "mcp", "tokenPrefix": "qali_mcp_", "scopes": ["mcp:read"] }
+  ]
+}

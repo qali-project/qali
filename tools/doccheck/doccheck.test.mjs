@@ -8,7 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { checkRepository, renderPermissionMatrix } from "./doccheck.mjs";
+import { checkRepository, checkPublicRepository, renderPermissionMatrix } from "./doccheck.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -120,7 +120,23 @@ test("valid fixture repository has no errors", () => {
 });
 
 test("the real repository documentation passes every check", () => {
-  assert.deepEqual(checkRepository(repoRoot), []);
+  assert.deepEqual(checkPublicRepository(repoRoot), []);
+});
+
+test("public checkouts reject internal documents and validate the executable catalog", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "public-doccheck-"));
+  try {
+    fs.mkdirSync(path.join(root, "internal/authz"), { recursive: true });
+    const catalogPath = path.join(root, "internal/authz/permission-catalog.json");
+    fs.writeFileSync(catalogPath, JSON.stringify(baseCatalog()));
+    assert.deepEqual(checkPublicRepository(root), []);
+    fs.mkdirSync(path.join(root, "docs"));
+    assert.ok(checkPublicRepository(root).some((e) => e.includes("internal documentation")));
+    fs.writeFileSync(catalogPath, "{");
+    assert.ok(checkPublicRepository(root).some((e) => e.includes("cannot read catalog")));
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });
 
 // Links

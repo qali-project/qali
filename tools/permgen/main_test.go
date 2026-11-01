@@ -7,7 +7,7 @@ import (
 )
 
 func TestGenerateIsDeterministicAndComplete(t *testing.T) {
-	data, err := os.ReadFile("../../docs/rbac/permission-catalog.json")
+	data, err := os.ReadFile("../../internal/authz/permission-catalog.json")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -176,10 +176,10 @@ EOF2
 expect_failure unaudited-platform-write "PlatformWrite skips the audit requirement" lint
 rm -r internal/zzfeature
 
-cp docs/rbac/permission-catalog.json "$work/permission-catalog.json.orig"
-sed -i '0,/"projects.manage_access": "all"/s//"projects.manage_access": "own"/' docs/rbac/permission-catalog.json
+cp internal/authz/permission-catalog.json "$work/permission-catalog.json.orig"
+sed -i '0,/"projects.manage_access": "all"/s//"projects.manage_access": "own"/' internal/authz/permission-catalog.json
 expect_failure stale-permission-catalog "stale: internal/authz/catalog_gen.go" fmt-check
-cp "$work/permission-catalog.json.orig" docs/rbac/permission-catalog.json
+cp "$work/permission-catalog.json.orig" internal/authz/permission-catalog.json
 
 mkdir -p internal/platform/httpserver/internal/platform/httpserver/openapi
 cp internal/platform/httpserver/openapi/openapi.gen.go internal/platform/httpserver/internal/platform/httpserver/openapi/
