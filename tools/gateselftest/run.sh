@@ -20,6 +20,7 @@ mkdir -p "$logs"
 
 tar -C "$root" \
   --exclude=./.git \
+  --exclude=./.claude \
   --exclude=./bin \
   --exclude=./web/node_modules \
   --exclude=./web/playwright-report \
