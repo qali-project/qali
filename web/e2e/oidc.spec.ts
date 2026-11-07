@@ -59,6 +59,22 @@ test("configure and verify provider, link and sign in, enforce policy and recove
   await page.getByRole("button", { name: "Verify provider" }).click();
   await idpLogin(page, "owner@example.org");
   await expect(page.getByText("verified", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Verify provider" }).click();
+  await expect(page.getByRole("heading", { name: "Test identity provider" })).toBeVisible();
+  const state = new URL(page.url()).searchParams.get("state");
+  if (!state) throw new Error("Missing provider state");
+  await page.goto(
+    `${String(info.project.use.baseURL)}/api/v1/auth/oidc/callback?state=${encodeURIComponent(state)}&error=access_denied`,
+  );
+  await expect(
+    page.getByText("Provider sign-in failed. Try again or contact your administrator."),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "Return to Qali" }).click();
+  await page
+    .getByRole("navigation", { name: "Main" })
+    .getByRole("link", { name: "Security" })
+    .click();
+  await expect(page.getByText("verified", { exact: true })).toBeVisible();
   expect(
     (await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag22aa"]).analyze())
       .violations,
@@ -83,6 +99,8 @@ test("configure and verify provider, link and sign in, enforce policy and recove
   await member.getByRole("button", { name: "Link Company sign-in" }).click();
   await idpLogin(member, "member@example.org");
   await expect(member.getByRole("button", { name: "Unlink provider" })).toBeVisible();
+  await member.getByRole("link", { name: "Back to workspace" }).click();
+  await expect(member.getByText(/Signed in as Tina Tester/)).toBeVisible();
   await signOut(member);
   await member.getByRole("button", { name: "Continue with Company sign-in" }).click();
   await idpLogin(member, "member@example.org");

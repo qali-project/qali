@@ -56,6 +56,17 @@ const signedOut = {
 };
 
 describe("App", () => {
+  it("shows a cancelled provider callback to an already signed-in account", async () => {
+    const { client } = server({
+      ...signedOut,
+      "GET /api/v1/auth/session": () => ({ status: 200, body: session("active") }),
+    });
+    render(<App client={client} initialPath="/login?oidc=failed" />);
+    expect(
+      await screen.findByText("Provider sign-in failed. Try again or contact your administrator."),
+    ).toBeVisible();
+    expect(screen.getByRole("link", { name: "Return to Qali" })).toHaveAttribute("href", "/");
+  });
   it("offers verified provider sign-in and explains emergency Owner access", async () => {
     const { client } = server({
       ...signedOut,

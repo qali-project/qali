@@ -148,14 +148,19 @@ function InPreferredWorkspace({ path = "" }: { path?: string }) {
 /** Sends visitors to the page their setup and session state require. */
 function Gate() {
   const { loading, failed, setupRequired, session } = useAuth();
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   if (loading) {
     return <p role="status">Loading…</p>;
   }
   if (failed) {
     return <p role="alert">The service is unavailable. Try again later.</p>;
   }
-  if (!allowedPath(pathname, setupRequired, session)) {
+  const activeCallbackFailure =
+    !setupRequired &&
+    session?.state === "active" &&
+    pathname === "/login" &&
+    new URLSearchParams(search).get("oidc") === "failed";
+  if (!allowedPath(pathname, setupRequired, session) && !activeCallbackFailure) {
     return <Navigate to={destination(setupRequired, session)} replace />;
   }
   return (

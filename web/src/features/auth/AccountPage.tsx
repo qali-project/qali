@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { Link } from "react-router";
 
 import { problemCode } from "../../api/client";
 import { usePageTitle } from "../../app/title";
@@ -58,6 +59,7 @@ export function AccountPage() {
   return (
     <section aria-labelledby="account-title">
       <h2 id="account-title">Your account</h2>
+      <Link to="/">Back to workspace</Link>
       <p>{session?.user.email}</p>
       {identity.isPending && <p role="status">Loading linked identity…</p>}
       {identity.isError && <p role="alert">Your linked identity could not be loaded.</p>}

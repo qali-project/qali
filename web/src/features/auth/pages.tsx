@@ -94,7 +94,7 @@ const loginSchema = z.object({
 
 export function LoginPage() {
   usePageTitle("Sign in");
-  const { client, signedIn } = useAuth();
+  const { client, signedIn, session } = useAuth();
   const callbackFailed = new URLSearchParams(useLocation().search).get("oidc") === "failed";
   const navigate = useNavigate();
   const [error, setError] = useState<string>();
@@ -113,6 +113,7 @@ export function LoginPage() {
       {callbackFailed && (
         <p role="alert">Provider sign-in failed. Try again or contact your administrator.</p>
       )}
+      {callbackFailed && session?.state === "active" && <Link to="/">Return to Qali</Link>}
       <OIDCSignIn />
       <form onSubmit={(ev) => void onSubmit(ev)} noValidate>
         <TextField
