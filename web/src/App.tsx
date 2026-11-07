@@ -94,6 +94,10 @@ function MainNav() {
         Home
       </NavLink>
       <NavLink to={inWorkspace(ws.data, "/projects")}>Projects</NavLink>
+      <NavLink to="/account">Account</NavLink>
+      {ws.data.permissions.includes("security.read") && (
+        <NavLink to={inWorkspace(ws.data, "/security")}>Security</NavLink>
+      )}
       {canAdminister(ws.data) && (
         <NavLink to={inWorkspace(ws.data, "/admin/members")}>Members</NavLink>
       )}
@@ -163,6 +167,8 @@ function Gate() {
       <Route path="/mfa/enroll" element={<EnrollPage />} />
       <Route path="/mfa/challenge" element={<ChallengePage />} />
       <Route path="/invite" element={<InvitePage />} />
+      <Route path="/account" element={<AccountPage />} />
+      <Route path="/w/:workspaceId/security" element={<SecurityPage />} />
       <Route path="/w/:workspaceId" element={<WorkspaceHome />} />
       <Route path="/w/:workspaceId/projects" element={<ProjectsPage />} />
       <Route path="/w/:workspaceId/projects/:projectId/access" element={<ProjectAccessPage />} />
@@ -229,3 +235,5 @@ function ServiceStatus() {
     </p>
   );
 }
+import { SecurityPage } from "./features/admin/SecurityPage";
+import { AccountPage } from "./features/auth/AccountPage";

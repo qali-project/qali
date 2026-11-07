@@ -99,6 +99,7 @@ COVER_THRESHOLDS := internal/platform/secret=90 internal/platform/crypto=90 \
 	internal/platform/config=90 internal/platform/db=90 internal/platform/audit=90 \
 	internal/platform/jobs=90 internal/platform/httpserver=80 \
 	internal/identity/domain=90 internal/identity/app=80 \
+	internal/identity/oidc=90 \
 	internal/identity/adapter/httpapi=80 internal/identity/adapter/postgres=80 \
 	internal/authz=90 internal/platform/pagination=90 \
 	internal/workspace/domain=90 internal/workspace/app=80 \

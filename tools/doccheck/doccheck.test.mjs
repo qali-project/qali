@@ -130,6 +130,9 @@ test("public checkouts reject internal documents and validate the executable cat
     const catalogPath = path.join(root, "internal/authz/permission-catalog.json");
     fs.writeFileSync(catalogPath, JSON.stringify(baseCatalog()));
     assert.deepEqual(checkPublicRepository(root), []);
+    fs.mkdirSync(path.join(root, ".claude/worktrees/fixture/docs"), { recursive: true });
+    fs.writeFileSync(path.join(root, ".claude/worktrees/fixture/docs/plan.md"), "[local](missing.md)");
+    assert.deepEqual(checkPublicRepository(root), []);
     fs.mkdirSync(path.join(root, "docs"));
     assert.ok(checkPublicRepository(root).some((e) => e.includes("internal documentation")));
     fs.writeFileSync(catalogPath, "{");

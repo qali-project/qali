@@ -2,7 +2,8 @@
 SELECT EXISTS (SELECT 1 FROM qali.installation);
 
 -- name: InsertInstallation :exec
-INSERT INTO qali.installation (owner_user_id, bootstrapped_at) VALUES (sqlc.arg(owner_user_id), sqlc.arg(at));
+INSERT INTO qali.installation (owner_user_id, primary_workspace_id, bootstrapped_at)
+VALUES (sqlc.arg(owner_user_id), sqlc.arg(primary_workspace_id), sqlc.arg(at));
 
 -- name: InsertUser :exec
 INSERT INTO qali.users (id, email, display_name, password_hash, password_changed_at, status, created_at, updated_at)
@@ -140,3 +141,64 @@ SELECT id, kek_version, nonce, ciphertext FROM qali.encryption_keys WHERE scope 
 INSERT INTO qali.encryption_keys (id, scope, kek_version, nonce, ciphertext, created_at)
 VALUES (sqlc.arg(id), sqlc.arg(scope), sqlc.arg(kek_version), sqlc.arg(nonce), sqlc.arg(ciphertext), sqlc.arg(at))
 ON CONFLICT (scope) DO NOTHING;
+-- name: LoginPolicy :one
+SELECT primary_workspace_id, local_login_enabled, login_policy_version FROM qali.installation;
+
+-- name: LockLoginPolicy :one
+SELECT primary_workspace_id, local_login_enabled, login_policy_version FROM qali.installation FOR UPDATE;
+
+-- name: SaveLoginPolicy :exec
+UPDATE qali.installation SET local_login_enabled = $1, login_policy_version = login_policy_version + 1;
+
+-- name: OIDCProvider :one
+SELECT * FROM qali.oidc_provider;
+
+-- name: SaveOIDCProvider :exec
+INSERT INTO qali.oidc_provider (id, issuer, client_id, label, secret_dek_id, secret_nonce, secret_ciphertext,
+ status, verified_at, verified_by, created_at, updated_at, version)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+ON CONFLICT (singleton) DO UPDATE SET
+ id=EXCLUDED.id, issuer=EXCLUDED.issuer, client_id=EXCLUDED.client_id, label=EXCLUDED.label,
+ secret_dek_id=EXCLUDED.secret_dek_id, secret_nonce=EXCLUDED.secret_nonce, secret_ciphertext=EXCLUDED.secret_ciphertext,
+ status=EXCLUDED.status, verified_at=EXCLUDED.verified_at, verified_by=EXCLUDED.verified_by,
+ updated_at=EXCLUDED.updated_at, version=EXCLUDED.version;
+
+-- name: RemoveOIDCProvider :exec
+DELETE FROM qali.oidc_provider;
+
+-- name: InsertOIDCFlow :exec
+INSERT INTO qali.oidc_flows (id,lookup_id,state_verifier,nonce_verifier,binding_verifier,key_version,
+ provider_id,purpose,user_id,sealed_dek_id,sealed_nonce,sealed_payload,created_at,expires_at)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14);
+
+-- name: ConsumeOIDCFlow :one
+UPDATE qali.oidc_flows SET consumed_at = sqlc.arg(at)
+WHERE lookup_id = sqlc.arg(lookup_id) AND state_verifier = sqlc.arg(state_verifier)
+ AND binding_verifier = sqlc.arg(binding_verifier) AND consumed_at IS NULL AND expires_at > sqlc.arg(at)
+RETURNING *;
+
+-- name: OIDCIdentity :one
+SELECT * FROM qali.user_identities WHERE issuer=$1 AND subject=$2;
+
+-- name: OwnOIDCIdentity :one
+SELECT * FROM qali.user_identities WHERE user_id=$1 AND issuer=$2;
+
+-- name: InsertOIDCIdentity :exec
+INSERT INTO qali.user_identities (id,user_id,issuer,subject,link_method,linked_at,last_login_at)
+VALUES ($1,$2,$3,$4,$5,$6,$7);
+
+-- name: TouchOIDCIdentity :exec
+UPDATE qali.user_identities SET last_login_at=$2 WHERE id=$1;
+
+-- name: RemoveOIDCIdentity :exec
+DELETE FROM qali.user_identities WHERE user_id=$1;
+
+-- name: RemoveAllOIDCIdentities :exec
+DELETE FROM qali.user_identities;
+
+-- name: CleanupOIDCFlows :execrows
+DELETE FROM qali.oidc_flows WHERE expires_at <= $1;
+
+-- name: HasPasswordlessOIDCUsers :one
+SELECT EXISTS (SELECT 1 FROM qali.users u JOIN qali.user_identities i ON i.user_id=u.id
+ WHERE u.status='active' AND u.password_hash IS NULL);

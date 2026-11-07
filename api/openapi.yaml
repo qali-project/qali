@@ -29,6 +29,14 @@ tags:
     description: One-time invitation links and their acceptance.
   - name: projects
     description: Projects as access objects and their direct members.
+  - name: oidc
+    description: >-
+      Sign-in with the installation's OpenID Connect provider, and linking
+      accounts to it.
+  - name: security
+    description: >-
+      Installation-wide identity provider and login policy, administered from
+      the primary workspace.
 paths:
   /health/live:
     get:
@@ -320,6 +328,140 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Session"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/auth/methods:
+    get:
+      operationId: getAuthMethods
+      tags: [auth]
+      summary: Sign-in methods offered on the login page
+      security: []
+      responses:
+        "200":
+          description: Available sign-in methods.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthMethods"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/auth/oidc/start:
+    post:
+      operationId: startOidcSignIn
+      tags: [oidc]
+      summary: Begin sign-in, or invitation acceptance, with the identity provider
+      description: >-
+        Creates a single-use authorization request valid for 10 minutes and
+        sets a short-lived browser-binding cookie. The browser then navigates
+        to the returned URL. Answers 404 when no verified provider exists.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OidcStart"
+      responses:
+        "200":
+          description: Authorization request created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OidcAuthorization"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/auth/oidc/callback:
+    get:
+      operationId: completeOidcSignIn
+      tags: [oidc]
+      summary: Redirect target registered with the identity provider
+      description: >-
+        Consumes the authorization request once, validates the provider's
+        answer, and redirects to the web application. Every failure redirects
+        to the login page with a generic error; nothing from the provider is
+        echoed.
+      security: []
+      parameters:
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 512
+        - name: code
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 2048
+        - name: error
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 256
+        - name: iss
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 2048
+      responses:
+        "303":
+          description: Redirect to the web application; a session cookie may be set.
+          headers:
+            Location:
+              schema:
+                type: string
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/auth/oidc/link:
+    post:
+      operationId: startOidcLink
+      tags: [oidc]
+      summary: Begin linking the signed-in account to the identity provider
+      description: >-
+        Needs recent MFA when the account has TOTP, otherwise the current
+        password.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OidcLinkStart"
+      responses:
+        "200":
+          description: Authorization request created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OidcAuthorization"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/auth/oidc/identity:
+    get:
+      operationId: getOwnOidcIdentity
+      tags: [oidc]
+      summary: The signed-in account's linked provider identity
+      responses:
+        "200":
+          description: The linked identity; 404 when none is linked.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OidcIdentity"
+        default:
+          $ref: "#/components/responses/Problem"
+    delete:
+      operationId: unlinkOwnOidcIdentity
+      tags: [oidc]
+      summary: Unlink the signed-in account from the identity provider
+      description: >-
+        Refused with 409 sign_in_method_required when the account would have
+        no remaining way to sign in.
+      responses:
+        "204":
+          description: Unlinked.
         default:
           $ref: "#/components/responses/Problem"
   /api/v1/invitations/preview:
@@ -666,6 +808,154 @@ paths:
       responses:
         "204":
           description: Removed.
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/workspaces/{workspaceId}/members/{userId}/oidc-identity:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/UserId"
+    delete:
+      operationId: unlinkMemberOidcIdentity
+      tags: [security]
+      summary: Unlink a member's provider identity
+      description: >-
+        Needs security.manage_sso and recent MFA. Refused with 409
+        sign_in_method_required when the member would have no remaining way
+        to sign in.
+      responses:
+        "204":
+          description: Unlinked.
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/workspaces/{workspaceId}/security/oidc-provider:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+    get:
+      operationId: getOidcProvider
+      tags: [security]
+      summary: The installation's identity provider, without its secret
+      description: >-
+        Needs security.read. Exists only in the primary workspace; 404 when
+        no provider is configured.
+      responses:
+        "200":
+          description: The provider.
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OidcProvider"
+        default:
+          $ref: "#/components/responses/Problem"
+    put:
+      operationId: putOidcProvider
+      tags: [security]
+      summary: Configure or replace the identity provider
+      description: >-
+        Needs security.manage_sso and recent MFA. Replacing needs If-Match.
+        The provider is checked through discovery before it is saved. A new
+        provider, or a changed issuer or client ID, is a draft until verified;
+        local login is then re-enabled automatically.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OidcProviderInput"
+      responses:
+        "200":
+          description: The saved provider.
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OidcProvider"
+        default:
+          $ref: "#/components/responses/Problem"
+    delete:
+      operationId: deleteOidcProvider
+      tags: [security]
+      summary: Remove the identity provider and every linked identity
+      description: >-
+        Needs security.manage_sso and recent MFA. Local login is re-enabled.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      responses:
+        "204":
+          description: Removed.
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/workspaces/{workspaceId}/security/oidc-provider/verify:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+    post:
+      operationId: startOidcVerification
+      tags: [security]
+      summary: Verify the provider by signing in with it once
+      description: >-
+        Needs security.manage_sso and recent MFA. Success marks the provider
+        verified and links the administrator's identity.
+      responses:
+        "200":
+          description: Authorization request created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OidcAuthorization"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v1/workspaces/{workspaceId}/security/login-policy:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+    get:
+      operationId: getLoginPolicy
+      tags: [security]
+      summary: Installation-wide login policy
+      description: Needs security.read. Exists only in the primary workspace.
+      responses:
+        "200":
+          description: The policy.
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginPolicy"
+        default:
+          $ref: "#/components/responses/Problem"
+    put:
+      operationId: putLoginPolicy
+      tags: [security]
+      summary: Enable or disable local password login
+      description: >-
+        Needs security.update and recent MFA. Disabling needs a verified
+        provider (409 oidc_not_verified). Owners keep break-glass password
+        login with TOTP.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginPolicyInput"
+      responses:
+        "200":
+          description: The updated policy.
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginPolicy"
         default:
           $ref: "#/components/responses/Problem"
 components:
@@ -1177,6 +1467,135 @@ components:
           maxItems: 10
           items:
             type: string
+    AuthMethods:
+      type: object
+      additionalProperties: false
+      required: [localLogin, oidc]
+      properties:
+        localLogin:
+          type: boolean
+          description: >-
+            Whether password login is offered to everyone. When false, only
+            Owners may still sign in with a password and TOTP.
+        oidc:
+          description: The verified provider, or null when none is available.
+          oneOf:
+            - $ref: "#/components/schemas/AuthMethodOidc"
+            - type: "null"
+    AuthMethodOidc:
+      type: object
+      additionalProperties: false
+      required: [label]
+      properties:
+        label:
+          type: string
+    OidcStart:
+      type: object
+      additionalProperties: false
+      required: [purpose]
+      properties:
+        purpose:
+          type: string
+          enum: [login, invitation]
+        invitationToken:
+          type: string
+          description: Required for purpose invitation; the qali_inv_ token from the link.
+          maxLength: 256
+    OidcLinkStart:
+      type: object
+      additionalProperties: false
+      properties:
+        password:
+          type: string
+          description: The current password, when the account has no TOTP.
+          maxLength: 256
+    OidcAuthorization:
+      type: object
+      additionalProperties: false
+      required: [authorizationUrl]
+      properties:
+        authorizationUrl:
+          type: string
+          format: uri
+    OidcIdentity:
+      type: object
+      additionalProperties: false
+      required: [issuer, linkedAt]
+      properties:
+        issuer:
+          type: string
+        linkedAt:
+          type: string
+          format: date-time
+        lastLoginAt:
+          type: [string, "null"]
+          format: date-time
+    OidcProviderStatus:
+      type: string
+      enum: [draft, verified]
+    OidcProvider:
+      type: object
+      additionalProperties: false
+      required: [issuer, clientId, label, clientSecretSet, status, redirectUri, updatedAt]
+      properties:
+        issuer:
+          type: string
+        clientId:
+          type: string
+        label:
+          type: string
+        clientSecretSet:
+          type: boolean
+          description: The secret itself is never returned.
+        status:
+          $ref: "#/components/schemas/OidcProviderStatus"
+        redirectUri:
+          type: string
+          description: The redirect URI to register with the provider.
+        verifiedAt:
+          type: [string, "null"]
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    OidcProviderInput:
+      type: object
+      additionalProperties: false
+      required: [issuer, clientId, label]
+      properties:
+        issuer:
+          type: string
+          description: https issuer URL, exactly as the provider reports it.
+          minLength: 8
+          maxLength: 2048
+        clientId:
+          type: string
+          minLength: 1
+          maxLength: 512
+        clientSecret:
+          type: string
+          description: Required when creating; omit to keep the stored secret.
+          minLength: 1
+          maxLength: 2048
+        label:
+          type: string
+          description: Button text on the login page.
+          minLength: 1
+          maxLength: 80
+    LoginPolicy:
+      type: object
+      additionalProperties: false
+      required: [localLogin]
+      properties:
+        localLogin:
+          type: boolean
+    LoginPolicyInput:
+      type: object
+      additionalProperties: false
+      required: [localLogin]
+      properties:
+        localLogin:
+          type: boolean
     Liveness:
       type: object
       additionalProperties: false

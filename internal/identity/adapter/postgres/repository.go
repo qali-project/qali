@@ -39,13 +39,17 @@ func (Repository) InstallationExists(ctx context.Context, tx db.Querier) (bool, 
 	return ok, mapErr(err)
 }
 
-func (Repository) InsertInstallation(ctx context.Context, tx db.Querier, owner uuid.UUID, at time.Time) error {
-	return mapErr(q(tx).InsertInstallation(ctx, iddb.InsertInstallationParams{OwnerUserID: owner, At: at}))
+func (Repository) InsertInstallation(ctx context.Context, tx db.Querier, owner, workspace uuid.UUID, at time.Time) error {
+	return mapErr(q(tx).InsertInstallation(ctx, iddb.InsertInstallationParams{OwnerUserID: owner, PrimaryWorkspaceID: workspace, At: at}))
 }
 
 func (Repository) InsertUser(ctx context.Context, tx db.Querier, u app.User, at time.Time) error {
+	var passwordHash *string
+	if u.PasswordHash != "" {
+		passwordHash = ptr(u.PasswordHash)
+	}
 	return mapErr(q(tx).InsertUser(ctx, iddb.InsertUserParams{
-		ID: u.ID, Email: u.Email, DisplayName: u.DisplayName, PasswordHash: ptr(u.PasswordHash), At: &at,
+		ID: u.ID, Email: u.Email, DisplayName: u.DisplayName, PasswordHash: passwordHash, At: &at,
 	}))
 }
 

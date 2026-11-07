@@ -17,9 +17,11 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/qali-project/qali/internal/platform/db"
 	"github.com/qali-project/qali/internal/platform/db/dbtest"
+	"github.com/qali-project/qali/test/oidctest"
 	"github.com/qali-project/qali/tools/internal/secretsdir"
 )
 
@@ -29,7 +31,7 @@ func main() {
 
 func run() int {
 	workdir := flag.String("C", ".", "directory to run the command in")
-	suites := flag.String("suites", "auth,admin", "comma-separated suites, one database each")
+	suites := flag.String("suites", "auth,admin,oidc", "comma-separated suites, one database each")
 	flag.Parse()
 	args := flag.Args()
 	if len(args) < 3 || args[1] != "--" {
@@ -43,6 +45,12 @@ func run() int {
 	}
 
 	ctx := context.Background()
+	issuer, err := oidctest.New(time.Now)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "e2eenv:", err)
+		return 1
+	}
+	defer issuer.Close()
 	cluster, err := dbtest.Start(ctx, os.Getenv("QALI_TEST_POSTGRES_MAJOR"), ".")
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "e2eenv:", err)
@@ -68,7 +76,7 @@ func run() int {
 
 	cmd := exec.CommandContext(ctx, args[2], args[3:]...) //nolint:gosec // G204: developer-supplied test command
 	cmd.Dir = *workdir
-	cmd.Env = append(os.Environ(), "QALI_E2E_SECRETS_DIR="+secrets)
+	cmd.Env = append(os.Environ(), "QALI_E2E_SECRETS_DIR="+secrets, "QALI_E2E_OIDC_ISSUER="+issuer.URL())
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
 	if err := cmd.Run(); err != nil {
 		var exit *exec.ExitError

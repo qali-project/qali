@@ -109,6 +109,23 @@ func TestValidProductionConfiguration(t *testing.T) {
 	}
 }
 
+func TestOIDCPrivateIssuerOptIn(t *testing.T) {
+	for _, value := range []string{"false", "true"} {
+		f := validFixture(t)
+		f.env["QALI_OIDC_ALLOW_PRIVATE_ISSUER"] = value
+		c, err := load(t, f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if c.OIDCAllowPrivateIssuer != (value == "true") {
+			t.Fatal("private issuer opt-in was not loaded")
+		}
+	}
+	f := validFixture(t)
+	f.env["QALI_OIDC_ALLOW_PRIVATE_ISSUER"] = "yes"
+	mustFail(t, f, "QALI_OIDC_ALLOW_PRIVATE_ISSUER")
+}
+
 func TestMissingRequiredSettingsAreAllReported(t *testing.T) {
 	f := validFixture(t)
 	delete(f.env, "QALI_PUBLIC_URL")

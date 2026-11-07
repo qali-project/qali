@@ -71,6 +71,42 @@ func (e MemberStatus) Valid() bool {
 	}
 }
 
+// Defines values for OidcProviderStatus.
+const (
+	Draft    OidcProviderStatus = "draft"
+	Verified OidcProviderStatus = "verified"
+)
+
+// Valid indicates whether the value is a known member of the OidcProviderStatus enum.
+func (e OidcProviderStatus) Valid() bool {
+	switch e {
+	case Draft:
+		return true
+	case Verified:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for OidcStartPurpose.
+const (
+	OidcStartPurposeInvitation OidcStartPurpose = "invitation"
+	OidcStartPurposeLogin      OidcStartPurpose = "login"
+)
+
+// Valid indicates whether the value is a known member of the OidcStartPurpose enum.
+func (e OidcStartPurpose) Valid() bool {
+	switch e {
+	case OidcStartPurposeInvitation:
+		return true
+	case OidcStartPurposeLogin:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ProjectAccessLevel.
 const (
 	ProjectAccessLevelContributor ProjectAccessLevel = "contributor"
@@ -173,6 +209,20 @@ func (e WorkspaceRole) Valid() bool {
 	}
 }
 
+// AuthMethodOidc defines model for AuthMethodOidc.
+type AuthMethodOidc struct {
+	Label string `json:"label"`
+}
+
+// AuthMethods defines model for AuthMethods.
+type AuthMethods struct {
+	// LocalLogin Whether password login is offered to everyone. When false, only Owners may still sign in with a password and TOTP.
+	LocalLogin bool `json:"localLogin"`
+
+	// Oidc The verified provider, or null when none is available.
+	Oidc *AuthMethodOidc `json:"oidc"`
+}
+
 // BootstrapRequest defines model for BootstrapRequest.
 type BootstrapRequest struct {
 	DisplayName string              `json:"displayName"`
@@ -259,6 +309,16 @@ type Liveness struct {
 // LivenessStatus defines model for Liveness.Status.
 type LivenessStatus string
 
+// LoginPolicy defines model for LoginPolicy.
+type LoginPolicy struct {
+	LocalLogin bool `json:"localLogin"`
+}
+
+// LoginPolicyInput defines model for LoginPolicyInput.
+type LoginPolicyInput struct {
+	LocalLogin bool `json:"localLogin"`
+}
+
 // LoginRequest defines model for LoginRequest.
 type LoginRequest struct {
 	Email    string `json:"email"`
@@ -295,6 +355,67 @@ type MemberStatus string
 
 // NextCursor Cursor for the next page; null on the last page.
 type NextCursor = string
+
+// OidcAuthorization defines model for OidcAuthorization.
+type OidcAuthorization struct {
+	AuthorizationUrl string `json:"authorizationUrl"`
+}
+
+// OidcIdentity defines model for OidcIdentity.
+type OidcIdentity struct {
+	Issuer      string     `json:"issuer"`
+	LastLoginAt *time.Time `json:"lastLoginAt,omitempty"`
+	LinkedAt    time.Time  `json:"linkedAt"`
+}
+
+// OidcLinkStart defines model for OidcLinkStart.
+type OidcLinkStart struct {
+	// Password The current password, when the account has no TOTP.
+	Password *string `json:"password,omitempty"`
+}
+
+// OidcProvider defines model for OidcProvider.
+type OidcProvider struct {
+	ClientId string `json:"clientId"`
+
+	// ClientSecretSet The secret itself is never returned.
+	ClientSecretSet bool   `json:"clientSecretSet"`
+	Issuer          string `json:"issuer"`
+	Label           string `json:"label"`
+
+	// RedirectUri The redirect URI to register with the provider.
+	RedirectUri string             `json:"redirectUri"`
+	Status      OidcProviderStatus `json:"status"`
+	UpdatedAt   time.Time          `json:"updatedAt"`
+	VerifiedAt  *time.Time         `json:"verifiedAt,omitempty"`
+}
+
+// OidcProviderInput defines model for OidcProviderInput.
+type OidcProviderInput struct {
+	ClientId string `json:"clientId"`
+
+	// ClientSecret Required when creating; omit to keep the stored secret.
+	ClientSecret *string `json:"clientSecret,omitempty"`
+
+	// Issuer https issuer URL, exactly as the provider reports it.
+	Issuer string `json:"issuer"`
+
+	// Label Button text on the login page.
+	Label string `json:"label"`
+}
+
+// OidcProviderStatus defines model for OidcProviderStatus.
+type OidcProviderStatus string
+
+// OidcStart defines model for OidcStart.
+type OidcStart struct {
+	// InvitationToken Required for purpose invitation; the qali_inv_ token from the link.
+	InvitationToken *string          `json:"invitationToken,omitempty"`
+	Purpose         OidcStartPurpose `json:"purpose"`
+}
+
+// OidcStartPurpose defines model for OidcStart.Purpose.
+type OidcStartPurpose string
 
 // PasswordChange defines model for PasswordChange.
 type PasswordChange struct {
@@ -487,6 +608,14 @@ type UserId = openapi_types.UUID
 // WorkspaceId defines model for WorkspaceId.
 type WorkspaceId = openapi_types.UUID
 
+// CompleteOidcSignInParams defines parameters for CompleteOidcSignIn.
+type CompleteOidcSignInParams struct {
+	State *string `form:"state,omitempty" json:"state,omitempty"`
+	Code  *string `form:"code,omitempty" json:"code,omitempty"`
+	Error *string `form:"error,omitempty" json:"error,omitempty"`
+	Iss   *string `form:"iss,omitempty" json:"iss,omitempty"`
+}
+
 // ListWorkspacesParams defines parameters for ListWorkspaces.
 type ListWorkspacesParams struct {
 	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
@@ -545,6 +674,24 @@ type UpdateProjectMemberParams struct {
 	IfMatch *IfMatch `json:"If-Match,omitempty"`
 }
 
+// PutLoginPolicyParams defines parameters for PutLoginPolicy.
+type PutLoginPolicyParams struct {
+	// IfMatch The ETag ("<version>") of the representation being changed. Missing answers 428; stale answers 412 (ADR-0003).
+	IfMatch *IfMatch `json:"If-Match,omitempty"`
+}
+
+// DeleteOidcProviderParams defines parameters for DeleteOidcProvider.
+type DeleteOidcProviderParams struct {
+	// IfMatch The ETag ("<version>") of the representation being changed. Missing answers 428; stale answers 412 (ADR-0003).
+	IfMatch *IfMatch `json:"If-Match,omitempty"`
+}
+
+// PutOidcProviderParams defines parameters for PutOidcProvider.
+type PutOidcProviderParams struct {
+	// IfMatch The ETag ("<version>") of the representation being changed. Missing answers 428; stale answers 412 (ADR-0003).
+	IfMatch *IfMatch `json:"If-Match,omitempty"`
+}
+
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = LoginRequest
 
@@ -556,6 +703,12 @@ type StepUpMfaJSONRequestBody = TotpCode
 
 // ConfirmTotpEnrollmentJSONRequestBody defines body for ConfirmTotpEnrollment for application/json ContentType.
 type ConfirmTotpEnrollmentJSONRequestBody = TotpCode
+
+// StartOidcLinkJSONRequestBody defines body for StartOidcLink for application/json ContentType.
+type StartOidcLinkJSONRequestBody = OidcLinkStart
+
+// StartOidcSignInJSONRequestBody defines body for StartOidcSignIn for application/json ContentType.
+type StartOidcSignInJSONRequestBody = OidcStart
 
 // ChangePasswordJSONRequestBody defines body for ChangePassword for application/json ContentType.
 type ChangePasswordJSONRequestBody = PasswordChange
@@ -596,6 +749,12 @@ type AddProjectMemberJSONRequestBody = ProjectMemberAdd
 // UpdateProjectMemberJSONRequestBody defines body for UpdateProjectMember for application/json ContentType.
 type UpdateProjectMemberJSONRequestBody = ProjectMemberPatch
 
+// PutLoginPolicyJSONRequestBody defines body for PutLoginPolicy for application/json ContentType.
+type PutLoginPolicyJSONRequestBody = LoginPolicyInput
+
+// PutOidcProviderJSONRequestBody defines body for PutOidcProvider for application/json ContentType.
+type PutOidcProviderJSONRequestBody = OidcProviderInput
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Login Sign in with email and password
@@ -607,6 +766,9 @@ type ServerInterface interface {
 	// LogoutAll End every session of the current user
 	// (POST /api/v1/auth/logout-all)
 	LogoutAll(w http.ResponseWriter, r *http.Request)
+	// GetAuthMethods Sign-in methods offered on the login page
+	// (GET /api/v1/auth/methods)
+	GetAuthMethods(w http.ResponseWriter, r *http.Request)
 	// CompleteMfaChallenge Complete sign-in with a TOTP code
 	// (POST /api/v1/auth/mfa/challenge)
 	CompleteMfaChallenge(w http.ResponseWriter, r *http.Request)
@@ -619,6 +781,21 @@ type ServerInterface interface {
 	// ConfirmTotpEnrollment Confirm TOTP enrollment and receive recovery codes once
 	// (POST /api/v1/auth/mfa/totp/enrollment/confirm)
 	ConfirmTotpEnrollment(w http.ResponseWriter, r *http.Request)
+	// CompleteOidcSignIn Redirect target registered with the identity provider
+	// (GET /api/v1/auth/oidc/callback)
+	CompleteOidcSignIn(w http.ResponseWriter, r *http.Request, params CompleteOidcSignInParams)
+	// UnlinkOwnOidcIdentity Unlink the signed-in account from the identity provider
+	// (DELETE /api/v1/auth/oidc/identity)
+	UnlinkOwnOidcIdentity(w http.ResponseWriter, r *http.Request)
+	// GetOwnOidcIdentity The signed-in account's linked provider identity
+	// (GET /api/v1/auth/oidc/identity)
+	GetOwnOidcIdentity(w http.ResponseWriter, r *http.Request)
+	// StartOidcLink Begin linking the signed-in account to the identity provider
+	// (POST /api/v1/auth/oidc/link)
+	StartOidcLink(w http.ResponseWriter, r *http.Request)
+	// StartOidcSignIn Begin sign-in, or invitation acceptance, with the identity provider
+	// (POST /api/v1/auth/oidc/start)
+	StartOidcSignIn(w http.ResponseWriter, r *http.Request)
 	// ChangePassword Change the password; revokes all other sessions
 	// (POST /api/v1/auth/password)
 	ChangePassword(w http.ResponseWriter, r *http.Request)
@@ -670,6 +847,9 @@ type ServerInterface interface {
 	// UpdateMember Change a member's role or status
 	// (PATCH /api/v1/workspaces/{workspaceId}/members/{userId})
 	UpdateMember(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, userId UserId, params UpdateMemberParams)
+	// UnlinkMemberOidcIdentity Unlink a member's provider identity
+	// (DELETE /api/v1/workspaces/{workspaceId}/members/{userId}/oidc-identity)
+	UnlinkMemberOidcIdentity(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, userId UserId)
 	// ListProjects Projects visible to the caller
 	// (GET /api/v1/workspaces/{workspaceId}/projects)
 	ListProjects(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, params ListProjectsParams)
@@ -691,6 +871,24 @@ type ServerInterface interface {
 	// UpdateProjectMember Change a direct member's access level
 	// (PATCH /api/v1/workspaces/{workspaceId}/projects/{projectId}/members/{userId})
 	UpdateProjectMember(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, projectId ProjectId, userId UserId, params UpdateProjectMemberParams)
+	// GetLoginPolicy Installation-wide login policy
+	// (GET /api/v1/workspaces/{workspaceId}/security/login-policy)
+	GetLoginPolicy(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId)
+	// PutLoginPolicy Enable or disable local password login
+	// (PUT /api/v1/workspaces/{workspaceId}/security/login-policy)
+	PutLoginPolicy(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, params PutLoginPolicyParams)
+	// DeleteOidcProvider Remove the identity provider and every linked identity
+	// (DELETE /api/v1/workspaces/{workspaceId}/security/oidc-provider)
+	DeleteOidcProvider(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, params DeleteOidcProviderParams)
+	// GetOidcProvider The installation's identity provider, without its secret
+	// (GET /api/v1/workspaces/{workspaceId}/security/oidc-provider)
+	GetOidcProvider(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId)
+	// PutOidcProvider Configure or replace the identity provider
+	// (PUT /api/v1/workspaces/{workspaceId}/security/oidc-provider)
+	PutOidcProvider(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, params PutOidcProviderParams)
+	// StartOidcVerification Verify the provider by signing in with it once
+	// (POST /api/v1/workspaces/{workspaceId}/security/oidc-provider/verify)
+	StartOidcVerification(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId)
 	// GetLiveness Liveness probe
 	// (GET /health/live)
 	GetLiveness(w http.ResponseWriter, r *http.Request)
@@ -721,6 +919,12 @@ func (_ Unimplemented) LogoutAll(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// GetAuthMethods Sign-in methods offered on the login page
+// (GET /api/v1/auth/methods)
+func (_ Unimplemented) GetAuthMethods(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // CompleteMfaChallenge Complete sign-in with a TOTP code
 // (POST /api/v1/auth/mfa/challenge)
 func (_ Unimplemented) CompleteMfaChallenge(w http.ResponseWriter, r *http.Request) {
@@ -742,6 +946,36 @@ func (_ Unimplemented) BeginTotpEnrollment(w http.ResponseWriter, r *http.Reques
 // ConfirmTotpEnrollment Confirm TOTP enrollment and receive recovery codes once
 // (POST /api/v1/auth/mfa/totp/enrollment/confirm)
 func (_ Unimplemented) ConfirmTotpEnrollment(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CompleteOidcSignIn Redirect target registered with the identity provider
+// (GET /api/v1/auth/oidc/callback)
+func (_ Unimplemented) CompleteOidcSignIn(w http.ResponseWriter, r *http.Request, params CompleteOidcSignInParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UnlinkOwnOidcIdentity Unlink the signed-in account from the identity provider
+// (DELETE /api/v1/auth/oidc/identity)
+func (_ Unimplemented) UnlinkOwnOidcIdentity(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetOwnOidcIdentity The signed-in account's linked provider identity
+// (GET /api/v1/auth/oidc/identity)
+func (_ Unimplemented) GetOwnOidcIdentity(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// StartOidcLink Begin linking the signed-in account to the identity provider
+// (POST /api/v1/auth/oidc/link)
+func (_ Unimplemented) StartOidcLink(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// StartOidcSignIn Begin sign-in, or invitation acceptance, with the identity provider
+// (POST /api/v1/auth/oidc/start)
+func (_ Unimplemented) StartOidcSignIn(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -847,6 +1081,12 @@ func (_ Unimplemented) UpdateMember(w http.ResponseWriter, r *http.Request, work
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// UnlinkMemberOidcIdentity Unlink a member's provider identity
+// (DELETE /api/v1/workspaces/{workspaceId}/members/{userId}/oidc-identity)
+func (_ Unimplemented) UnlinkMemberOidcIdentity(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, userId UserId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // ListProjects Projects visible to the caller
 // (GET /api/v1/workspaces/{workspaceId}/projects)
 func (_ Unimplemented) ListProjects(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, params ListProjectsParams) {
@@ -886,6 +1126,42 @@ func (_ Unimplemented) RemoveProjectMember(w http.ResponseWriter, r *http.Reques
 // UpdateProjectMember Change a direct member's access level
 // (PATCH /api/v1/workspaces/{workspaceId}/projects/{projectId}/members/{userId})
 func (_ Unimplemented) UpdateProjectMember(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, projectId ProjectId, userId UserId, params UpdateProjectMemberParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetLoginPolicy Installation-wide login policy
+// (GET /api/v1/workspaces/{workspaceId}/security/login-policy)
+func (_ Unimplemented) GetLoginPolicy(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PutLoginPolicy Enable or disable local password login
+// (PUT /api/v1/workspaces/{workspaceId}/security/login-policy)
+func (_ Unimplemented) PutLoginPolicy(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, params PutLoginPolicyParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DeleteOidcProvider Remove the identity provider and every linked identity
+// (DELETE /api/v1/workspaces/{workspaceId}/security/oidc-provider)
+func (_ Unimplemented) DeleteOidcProvider(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, params DeleteOidcProviderParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetOidcProvider The installation's identity provider, without its secret
+// (GET /api/v1/workspaces/{workspaceId}/security/oidc-provider)
+func (_ Unimplemented) GetOidcProvider(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PutOidcProvider Configure or replace the identity provider
+// (PUT /api/v1/workspaces/{workspaceId}/security/oidc-provider)
+func (_ Unimplemented) PutOidcProvider(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, params PutOidcProviderParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// StartOidcVerification Verify the provider by signing in with it once
+// (POST /api/v1/workspaces/{workspaceId}/security/oidc-provider/verify)
+func (_ Unimplemented) StartOidcVerification(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -952,6 +1228,20 @@ func (siw *ServerInterfaceWrapper) LogoutAll(w http.ResponseWriter, r *http.Requ
 	handler.ServeHTTP(w, r)
 }
 
+// GetAuthMethods operation middleware
+func (siw *ServerInterfaceWrapper) GetAuthMethods(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAuthMethods(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // CompleteMfaChallenge operation middleware
 func (siw *ServerInterfaceWrapper) CompleteMfaChallenge(w http.ResponseWriter, r *http.Request) {
 
@@ -999,6 +1289,134 @@ func (siw *ServerInterfaceWrapper) ConfirmTotpEnrollment(w http.ResponseWriter, 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ConfirmTotpEnrollment(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CompleteOidcSignIn operation middleware
+func (siw *ServerInterfaceWrapper) CompleteOidcSignIn(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CompleteOidcSignInParams
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "state", r.URL.Query(), &params.State, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "state"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "state", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "code" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "code", r.URL.Query(), &params.Code, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "code"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "code", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "error" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "error", r.URL.Query(), &params.Error, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "error"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "error", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "iss" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "iss", r.URL.Query(), &params.Iss, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "iss"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "iss", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CompleteOidcSignIn(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UnlinkOwnOidcIdentity operation middleware
+func (siw *ServerInterfaceWrapper) UnlinkOwnOidcIdentity(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UnlinkOwnOidcIdentity(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetOwnOidcIdentity operation middleware
+func (siw *ServerInterfaceWrapper) GetOwnOidcIdentity(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOwnOidcIdentity(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StartOidcLink operation middleware
+func (siw *ServerInterfaceWrapper) StartOidcLink(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StartOidcLink(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StartOidcSignIn operation middleware
+func (siw *ServerInterfaceWrapper) StartOidcSignIn(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StartOidcSignIn(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1450,6 +1868,41 @@ func (siw *ServerInterfaceWrapper) UpdateMember(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
+// UnlinkMemberOidcIdentity operation middleware
+func (siw *ServerInterfaceWrapper) UnlinkMemberOidcIdentity(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceId WorkspaceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", chi.URLParam(r, "workspaceId"), &workspaceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workspaceId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userId" -------------
+	var userId UserId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userId", chi.URLParam(r, "userId"), &userId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UnlinkMemberOidcIdentity(w, r, workspaceId, userId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListProjects operation middleware
 func (siw *ServerInterfaceWrapper) ListProjects(w http.ResponseWriter, r *http.Request) {
 
@@ -1801,6 +2254,234 @@ func (siw *ServerInterfaceWrapper) UpdateProjectMember(w http.ResponseWriter, r 
 	handler.ServeHTTP(w, r)
 }
 
+// GetLoginPolicy operation middleware
+func (siw *ServerInterfaceWrapper) GetLoginPolicy(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceId WorkspaceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", chi.URLParam(r, "workspaceId"), &workspaceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workspaceId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetLoginPolicy(w, r, workspaceId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutLoginPolicy operation middleware
+func (siw *ServerInterfaceWrapper) PutLoginPolicy(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceId WorkspaceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", chi.URLParam(r, "workspaceId"), &workspaceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workspaceId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PutLoginPolicyParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatch
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = &IfMatch
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutLoginPolicy(w, r, workspaceId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteOidcProvider operation middleware
+func (siw *ServerInterfaceWrapper) DeleteOidcProvider(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceId WorkspaceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", chi.URLParam(r, "workspaceId"), &workspaceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workspaceId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteOidcProviderParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatch
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = &IfMatch
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteOidcProvider(w, r, workspaceId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetOidcProvider operation middleware
+func (siw *ServerInterfaceWrapper) GetOidcProvider(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceId WorkspaceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", chi.URLParam(r, "workspaceId"), &workspaceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workspaceId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOidcProvider(w, r, workspaceId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutOidcProvider operation middleware
+func (siw *ServerInterfaceWrapper) PutOidcProvider(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceId WorkspaceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", chi.URLParam(r, "workspaceId"), &workspaceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workspaceId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PutOidcProviderParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatch
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = &IfMatch
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutOidcProvider(w, r, workspaceId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StartOidcVerification operation middleware
+func (siw *ServerInterfaceWrapper) StartOidcVerification(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceId WorkspaceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", chi.URLParam(r, "workspaceId"), &workspaceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workspaceId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StartOidcVerification(w, r, workspaceId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetLiveness operation middleware
 func (siw *ServerInterfaceWrapper) GetLiveness(w http.ResponseWriter, r *http.Request) {
 
@@ -1991,6 +2672,24 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/api/v1/auth/mfa/step-up", wrapper.StepUpMfa)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/auth/methods", wrapper.GetAuthMethods)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/auth/oidc/start", wrapper.StartOidcSignIn)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/auth/oidc/callback", wrapper.CompleteOidcSignIn)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/auth/oidc/link", wrapper.StartOidcLink)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/auth/oidc/identity", wrapper.UnlinkOwnOidcIdentity)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/auth/oidc/identity", wrapper.GetOwnOidcIdentity)
+	})
+	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/invitations/preview", wrapper.PreviewInvitation)
 	})
 	r.Group(func(r chi.Router) {
@@ -2040,6 +2739,27 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Patch(options.BaseURL+"/api/v1/workspaces/{workspaceId}/projects/{projectId}/members/{userId}", wrapper.UpdateProjectMember)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/workspaces/{workspaceId}/members/{userId}/oidc-identity", wrapper.UnlinkMemberOidcIdentity)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/workspaces/{workspaceId}/security/oidc-provider", wrapper.DeleteOidcProvider)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/workspaces/{workspaceId}/security/oidc-provider", wrapper.GetOidcProvider)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/workspaces/{workspaceId}/security/oidc-provider", wrapper.PutOidcProvider)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/workspaces/{workspaceId}/security/oidc-provider/verify", wrapper.StartOidcVerification)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/workspaces/{workspaceId}/security/login-policy", wrapper.GetLoginPolicy)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/workspaces/{workspaceId}/security/login-policy", wrapper.PutLoginPolicy)
 	})
 
 	return r

@@ -65,6 +65,13 @@ func (s *Service) PrepareAccount(rawEmail, displayName string, password secret.V
 // transaction and signs it in. Accounts that must use MFA start in
 // mfa_enrollment. The caller records the audit event of its use case.
 func (s *Service) CreateAccount(ctx context.Context, tx *db.WriteTx, a NewAccount, requiresMFA bool, m RequestMeta) (Grant, error) {
+	policy, err := s.oidcRepo().LoginPolicy(ctx, tx, true)
+	if err != nil {
+		return Grant{}, err
+	}
+	if !policy.LocalLogin {
+		return Grant{}, ErrInvalidCredentials
+	}
 	if a.user.ID == uuid.Nil {
 		return Grant{}, ErrInvalidInput
 	}

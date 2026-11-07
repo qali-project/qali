@@ -123,6 +123,10 @@ const messages: Record<string, string> = {
   invalid_code: "That code is not valid. Enter the current code from your authenticator app.",
   too_many_attempts: "Too many attempts. Wait a moment and try again.",
   invalid_input: "Check the values and try again.",
+  oidc_not_verified:
+    "The provider is unavailable or has not been verified. Verify it before disabling password sign-in.",
+  sign_in_method_required:
+    "This would leave an account without a usable sign-in method. Keep its provider or add a password first.",
 };
 
 export function adminMessage(code: string | undefined): string {

@@ -57,6 +57,18 @@ func (q *Queries) AdvanceTOTPStep(ctx context.Context, arg AdvanceTOTPStepParams
 	return result.RowsAffected(), nil
 }
 
+const cleanupOIDCFlows = `-- name: CleanupOIDCFlows :execrows
+DELETE FROM qali.oidc_flows WHERE expires_at <= $1
+`
+
+func (q *Queries) CleanupOIDCFlows(ctx context.Context, expiresAt time.Time) (int64, error) {
+	result, err := q.db.Exec(ctx, cleanupOIDCFlows, expiresAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const confirmTOTP = `-- name: ConfirmTOTP :execrows
 UPDATE qali.users
 SET totp_confirmed_at = $1, totp_last_step = $2, updated_at = $1, version = version + 1
@@ -75,6 +87,48 @@ func (q *Queries) ConfirmTOTP(ctx context.Context, arg ConfirmTOTPParams) (int64
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const consumeOIDCFlow = `-- name: ConsumeOIDCFlow :one
+UPDATE qali.oidc_flows SET consumed_at = $1
+WHERE lookup_id = $2 AND state_verifier = $3
+ AND binding_verifier = $4 AND consumed_at IS NULL AND expires_at > $1
+RETURNING id, lookup_id, state_verifier, nonce_verifier, binding_verifier, key_version, provider_id, purpose, user_id, sealed_dek_id, sealed_nonce, sealed_payload, created_at, expires_at, consumed_at
+`
+
+type ConsumeOIDCFlowParams struct {
+	At              *time.Time
+	LookupID        string
+	StateVerifier   []byte
+	BindingVerifier []byte
+}
+
+func (q *Queries) ConsumeOIDCFlow(ctx context.Context, arg ConsumeOIDCFlowParams) (QaliOidcFlow, error) {
+	row := q.db.QueryRow(ctx, consumeOIDCFlow,
+		arg.At,
+		arg.LookupID,
+		arg.StateVerifier,
+		arg.BindingVerifier,
+	)
+	var i QaliOidcFlow
+	err := row.Scan(
+		&i.ID,
+		&i.LookupID,
+		&i.StateVerifier,
+		&i.NonceVerifier,
+		&i.BindingVerifier,
+		&i.KeyVersion,
+		&i.ProviderID,
+		&i.Purpose,
+		&i.UserID,
+		&i.SealedDekID,
+		&i.SealedNonce,
+		&i.SealedPayload,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+		&i.ConsumedAt,
+	)
+	return i, err
 }
 
 const dEKByScope = `-- name: DEKByScope :one
@@ -117,6 +171,18 @@ func (q *Queries) EnsureThrottle(ctx context.Context, arg EnsureThrottleParams) 
 	return err
 }
 
+const hasPasswordlessOIDCUsers = `-- name: HasPasswordlessOIDCUsers :one
+SELECT EXISTS (SELECT 1 FROM qali.users u JOIN qali.user_identities i ON i.user_id=u.id
+ WHERE u.status='active' AND u.password_hash IS NULL)
+`
+
+func (q *Queries) HasPasswordlessOIDCUsers(ctx context.Context) (bool, error) {
+	row := q.db.QueryRow(ctx, hasPasswordlessOIDCUsers)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const insertDEK = `-- name: InsertDEK :exec
 INSERT INTO qali.encryption_keys (id, scope, kek_version, nonce, ciphertext, created_at)
 VALUES ($1, $2, $3, $4, $5, $6)
@@ -145,16 +211,18 @@ func (q *Queries) InsertDEK(ctx context.Context, arg InsertDEKParams) error {
 }
 
 const insertInstallation = `-- name: InsertInstallation :exec
-INSERT INTO qali.installation (owner_user_id, bootstrapped_at) VALUES ($1, $2)
+INSERT INTO qali.installation (owner_user_id, primary_workspace_id, bootstrapped_at)
+VALUES ($1, $2, $3)
 `
 
 type InsertInstallationParams struct {
-	OwnerUserID uuid.UUID
-	At          time.Time
+	OwnerUserID        uuid.UUID
+	PrimaryWorkspaceID uuid.UUID
+	At                 time.Time
 }
 
 func (q *Queries) InsertInstallation(ctx context.Context, arg InsertInstallationParams) error {
-	_, err := q.db.Exec(ctx, insertInstallation, arg.OwnerUserID, arg.At)
+	_, err := q.db.Exec(ctx, insertInstallation, arg.OwnerUserID, arg.PrimaryWorkspaceID, arg.At)
 	return err
 }
 
@@ -176,6 +244,77 @@ func (q *Queries) InsertMember(ctx context.Context, arg InsertMemberParams) erro
 		arg.UserID,
 		arg.Role,
 		arg.At,
+	)
+	return err
+}
+
+const insertOIDCFlow = `-- name: InsertOIDCFlow :exec
+INSERT INTO qali.oidc_flows (id,lookup_id,state_verifier,nonce_verifier,binding_verifier,key_version,
+ provider_id,purpose,user_id,sealed_dek_id,sealed_nonce,sealed_payload,created_at,expires_at)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+`
+
+type InsertOIDCFlowParams struct {
+	ID              uuid.UUID
+	LookupID        string
+	StateVerifier   []byte
+	NonceVerifier   []byte
+	BindingVerifier []byte
+	KeyVersion      int32
+	ProviderID      uuid.UUID
+	Purpose         string
+	UserID          *uuid.UUID
+	SealedDekID     string
+	SealedNonce     []byte
+	SealedPayload   []byte
+	CreatedAt       time.Time
+	ExpiresAt       time.Time
+}
+
+func (q *Queries) InsertOIDCFlow(ctx context.Context, arg InsertOIDCFlowParams) error {
+	_, err := q.db.Exec(ctx, insertOIDCFlow,
+		arg.ID,
+		arg.LookupID,
+		arg.StateVerifier,
+		arg.NonceVerifier,
+		arg.BindingVerifier,
+		arg.KeyVersion,
+		arg.ProviderID,
+		arg.Purpose,
+		arg.UserID,
+		arg.SealedDekID,
+		arg.SealedNonce,
+		arg.SealedPayload,
+		arg.CreatedAt,
+		arg.ExpiresAt,
+	)
+	return err
+}
+
+const insertOIDCIdentity = `-- name: InsertOIDCIdentity :exec
+INSERT INTO qali.user_identities (id,user_id,issuer,subject,link_method,linked_at,last_login_at)
+VALUES ($1,$2,$3,$4,$5,$6,$7)
+`
+
+type InsertOIDCIdentityParams struct {
+	ID          uuid.UUID
+	UserID      uuid.UUID
+	Issuer      string
+	Subject     string
+	LinkMethod  string
+	LinkedAt    time.Time
+	LastLoginAt *time.Time
+}
+
+func (q *Queries) InsertOIDCIdentity(ctx context.Context, arg InsertOIDCIdentityParams) error {
+	_, err := q.db.Exec(ctx, insertOIDCIdentity,
+		arg.ID,
+		arg.UserID,
+		arg.Issuer,
+		arg.Subject,
+		arg.LinkMethod,
+		arg.LinkedAt,
+		arg.LastLoginAt,
 	)
 	return err
 }
@@ -377,6 +516,23 @@ func (q *Queries) LiveRecoveryCode(ctx context.Context, arg LiveRecoveryCodePara
 	return i, err
 }
 
+const lockLoginPolicy = `-- name: LockLoginPolicy :one
+SELECT primary_workspace_id, local_login_enabled, login_policy_version FROM qali.installation FOR UPDATE
+`
+
+type LockLoginPolicyRow struct {
+	PrimaryWorkspaceID uuid.UUID
+	LocalLoginEnabled  bool
+	LoginPolicyVersion int32
+}
+
+func (q *Queries) LockLoginPolicy(ctx context.Context) (LockLoginPolicyRow, error) {
+	row := q.db.QueryRow(ctx, lockLoginPolicy)
+	var i LockLoginPolicyRow
+	err := row.Scan(&i.PrimaryWorkspaceID, &i.LocalLoginEnabled, &i.LoginPolicyVersion)
+	return i, err
+}
+
 const lockThrottle = `-- name: LockThrottle :one
 SELECT failures, next_allowed_at FROM qali.login_throttle WHERE key = $1 FOR UPDATE
 `
@@ -390,6 +546,97 @@ func (q *Queries) LockThrottle(ctx context.Context, key []byte) (LockThrottleRow
 	row := q.db.QueryRow(ctx, lockThrottle, key)
 	var i LockThrottleRow
 	err := row.Scan(&i.Failures, &i.NextAllowedAt)
+	return i, err
+}
+
+const loginPolicy = `-- name: LoginPolicy :one
+SELECT primary_workspace_id, local_login_enabled, login_policy_version FROM qali.installation
+`
+
+type LoginPolicyRow struct {
+	PrimaryWorkspaceID uuid.UUID
+	LocalLoginEnabled  bool
+	LoginPolicyVersion int32
+}
+
+func (q *Queries) LoginPolicy(ctx context.Context) (LoginPolicyRow, error) {
+	row := q.db.QueryRow(ctx, loginPolicy)
+	var i LoginPolicyRow
+	err := row.Scan(&i.PrimaryWorkspaceID, &i.LocalLoginEnabled, &i.LoginPolicyVersion)
+	return i, err
+}
+
+const oIDCIdentity = `-- name: OIDCIdentity :one
+SELECT id, user_id, issuer, subject, link_method, linked_at, last_login_at FROM qali.user_identities WHERE issuer=$1 AND subject=$2
+`
+
+type OIDCIdentityParams struct {
+	Issuer  string
+	Subject string
+}
+
+func (q *Queries) OIDCIdentity(ctx context.Context, arg OIDCIdentityParams) (QaliUserIdentity, error) {
+	row := q.db.QueryRow(ctx, oIDCIdentity, arg.Issuer, arg.Subject)
+	var i QaliUserIdentity
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Issuer,
+		&i.Subject,
+		&i.LinkMethod,
+		&i.LinkedAt,
+		&i.LastLoginAt,
+	)
+	return i, err
+}
+
+const oIDCProvider = `-- name: OIDCProvider :one
+SELECT singleton, id, issuer, client_id, label, secret_dek_id, secret_nonce, secret_ciphertext, status, verified_at, verified_by, created_at, updated_at, version FROM qali.oidc_provider
+`
+
+func (q *Queries) OIDCProvider(ctx context.Context) (QaliOidcProvider, error) {
+	row := q.db.QueryRow(ctx, oIDCProvider)
+	var i QaliOidcProvider
+	err := row.Scan(
+		&i.Singleton,
+		&i.ID,
+		&i.Issuer,
+		&i.ClientID,
+		&i.Label,
+		&i.SecretDekID,
+		&i.SecretNonce,
+		&i.SecretCiphertext,
+		&i.Status,
+		&i.VerifiedAt,
+		&i.VerifiedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Version,
+	)
+	return i, err
+}
+
+const ownOIDCIdentity = `-- name: OwnOIDCIdentity :one
+SELECT id, user_id, issuer, subject, link_method, linked_at, last_login_at FROM qali.user_identities WHERE user_id=$1 AND issuer=$2
+`
+
+type OwnOIDCIdentityParams struct {
+	UserID uuid.UUID
+	Issuer string
+}
+
+func (q *Queries) OwnOIDCIdentity(ctx context.Context, arg OwnOIDCIdentityParams) (QaliUserIdentity, error) {
+	row := q.db.QueryRow(ctx, ownOIDCIdentity, arg.UserID, arg.Issuer)
+	var i QaliUserIdentity
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Issuer,
+		&i.Subject,
+		&i.LinkMethod,
+		&i.LinkedAt,
+		&i.LastLoginAt,
+	)
 	return i, err
 }
 
@@ -418,6 +665,33 @@ func (q *Queries) PasswordResetByLookup(ctx context.Context, lookupID string) (P
 		&i.UsedAt,
 	)
 	return i, err
+}
+
+const removeAllOIDCIdentities = `-- name: RemoveAllOIDCIdentities :exec
+DELETE FROM qali.user_identities
+`
+
+func (q *Queries) RemoveAllOIDCIdentities(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, removeAllOIDCIdentities)
+	return err
+}
+
+const removeOIDCIdentity = `-- name: RemoveOIDCIdentity :exec
+DELETE FROM qali.user_identities WHERE user_id=$1
+`
+
+func (q *Queries) RemoveOIDCIdentity(ctx context.Context, userID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, removeOIDCIdentity, userID)
+	return err
+}
+
+const removeOIDCProvider = `-- name: RemoveOIDCProvider :exec
+DELETE FROM qali.oidc_provider
+`
+
+func (q *Queries) RemoveOIDCProvider(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, removeOIDCProvider)
+	return err
 }
 
 const revokeSession = `-- name: RevokeSession :exec
@@ -453,6 +727,61 @@ func (q *Queries) RevokeUserSessions(ctx context.Context, arg RevokeUserSessions
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const saveLoginPolicy = `-- name: SaveLoginPolicy :exec
+UPDATE qali.installation SET local_login_enabled = $1, login_policy_version = login_policy_version + 1
+`
+
+func (q *Queries) SaveLoginPolicy(ctx context.Context, localLoginEnabled bool) error {
+	_, err := q.db.Exec(ctx, saveLoginPolicy, localLoginEnabled)
+	return err
+}
+
+const saveOIDCProvider = `-- name: SaveOIDCProvider :exec
+INSERT INTO qali.oidc_provider (id, issuer, client_id, label, secret_dek_id, secret_nonce, secret_ciphertext,
+ status, verified_at, verified_by, created_at, updated_at, version)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+ON CONFLICT (singleton) DO UPDATE SET
+ id=EXCLUDED.id, issuer=EXCLUDED.issuer, client_id=EXCLUDED.client_id, label=EXCLUDED.label,
+ secret_dek_id=EXCLUDED.secret_dek_id, secret_nonce=EXCLUDED.secret_nonce, secret_ciphertext=EXCLUDED.secret_ciphertext,
+ status=EXCLUDED.status, verified_at=EXCLUDED.verified_at, verified_by=EXCLUDED.verified_by,
+ updated_at=EXCLUDED.updated_at, version=EXCLUDED.version
+`
+
+type SaveOIDCProviderParams struct {
+	ID               uuid.UUID
+	Issuer           string
+	ClientID         string
+	Label            string
+	SecretDekID      string
+	SecretNonce      []byte
+	SecretCiphertext []byte
+	Status           string
+	VerifiedAt       *time.Time
+	VerifiedBy       *uuid.UUID
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+	Version          int32
+}
+
+func (q *Queries) SaveOIDCProvider(ctx context.Context, arg SaveOIDCProviderParams) error {
+	_, err := q.db.Exec(ctx, saveOIDCProvider,
+		arg.ID,
+		arg.Issuer,
+		arg.ClientID,
+		arg.Label,
+		arg.SecretDekID,
+		arg.SecretNonce,
+		arg.SecretCiphertext,
+		arg.Status,
+		arg.VerifiedAt,
+		arg.VerifiedBy,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+		arg.Version,
+	)
+	return err
 }
 
 const saveThrottle = `-- name: SaveThrottle :exec
@@ -625,6 +954,20 @@ func (q *Queries) ThrottleState(ctx context.Context, key []byte) (ThrottleStateR
 	var i ThrottleStateRow
 	err := row.Scan(&i.Failures, &i.NextAllowedAt)
 	return i, err
+}
+
+const touchOIDCIdentity = `-- name: TouchOIDCIdentity :exec
+UPDATE qali.user_identities SET last_login_at=$2 WHERE id=$1
+`
+
+type TouchOIDCIdentityParams struct {
+	ID          uuid.UUID
+	LastLoginAt *time.Time
+}
+
+func (q *Queries) TouchOIDCIdentity(ctx context.Context, arg TouchOIDCIdentityParams) error {
+	_, err := q.db.Exec(ctx, touchOIDCIdentity, arg.ID, arg.LastLoginAt)
+	return err
 }
 
 const touchSession = `-- name: TouchSession :exec

@@ -27,6 +27,7 @@ import (
 	"github.com/qali-project/qali/internal/identity/adapter/httpapi"
 	"github.com/qali-project/qali/internal/identity/adapter/postgres"
 	"github.com/qali-project/qali/internal/identity/app"
+	"github.com/qali-project/qali/internal/identity/oidc"
 	"github.com/qali-project/qali/internal/platform/clock"
 	"github.com/qali-project/qali/internal/platform/config"
 	"github.com/qali-project/qali/internal/platform/crypto"
@@ -137,11 +138,13 @@ func services(ctx context.Context, cfg config.Config) (deps, error) {
 	if err != nil {
 		return deps{}, err
 	}
-	svc := app.New(app.Config{
+	var ws *workspaceapp.Service
+	svc := app.New(assembly.IdentityWorkspace(app.Config{
 		Store: store, Repo: postgres.Repository{}, Passwords: passwords, Tokens: tokens, Keyring: keyring,
 		Clock: clock.System{}, NewID: uuid.NewV7, Issuer: "Qali",
-	})
-	ws := workspaceapp.New(workspaceapp.Config{
+		OIDC: oidc.Config{PublicURL: cfg.PublicURL.String(), Development: cfg.Environment == config.Development, AllowPrivateIssuer: cfg.OIDCAllowPrivateIssuer},
+	}, func() *workspaceapp.Service { return ws }))
+	ws = workspaceapp.New(workspaceapp.Config{
 		Store: store, Repo: workspacepg.Repository{}, Accounts: svc, Tokens: tokens, Clock: clock.System{}, NewID: uuid.NewV7,
 	})
 	return deps{store: store, identity: svc, workspace: ws}, nil
@@ -214,6 +217,7 @@ func run(ctx context.Context, logger *slog.Logger, src config.Source) error {
 		logger.Warn("starting while not ready", "reason", err.Error())
 	}
 	worker := jobs.NewWorker(store, jobs.NewQueue(clock.System{}, uuid.NewV7), jobs.WorkerOptions{Logger: logger})
+	worker.Handle("identity.oidc_cleanup", func(ctx context.Context, _ jobs.Job) error { return d.identity.CleanupOIDCFlows(ctx) })
 
 	srv := &http.Server{
 		Addr: cfg.HTTPAddr,

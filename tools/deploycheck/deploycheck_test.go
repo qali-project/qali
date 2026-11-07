@@ -79,6 +79,48 @@ func TestCompliantConfigurationPasses(t *testing.T) {
 	}
 }
 
+func TestOIDCEgressIsolation(t *testing.T) {
+	config := func() map[string]any {
+		c := validConfig()
+		c["networks"].(map[string]any)["egress"] = map[string]any{"internal": false}
+		svc(c, "qali")["networks"].(map[string]any)["egress"] = nil
+		return c
+	}
+	for _, tc := range []struct {
+		name   string
+		mutate func(map[string]any)
+		valid  bool
+	}{
+		{"qali only", func(map[string]any) {}, true},
+		{"postgres egress", func(c map[string]any) { svc(c, "postgres")["networks"].(map[string]any)["egress"] = nil }, false},
+		{"migration egress", func(c map[string]any) { svc(c, "migrate")["networks"].(map[string]any)["egress"] = nil }, false},
+		{"proxy egress", func(c map[string]any) { svc(c, "proxy")["networks"].(map[string]any)["egress"] = nil }, false},
+		{"internal egress", func(c map[string]any) { c["networks"].(map[string]any)["egress"] = map[string]any{"internal": true} }, false},
+		{"extra port", func(c map[string]any) {
+			svc(c, "qali")["ports"] = []any{map[string]any{"target": 8080, "published": "8080", "protocol": "tcp"}}
+		}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := config()
+			tc.mutate(c)
+			b, err := json.Marshal(c)
+			if err != nil {
+				t.Fatal(err)
+			}
+			f, err := checkComposeProfile(b, "443", true)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if (len(f) == 0) != tc.valid {
+				t.Fatalf("findings: %v", f)
+			}
+		})
+	}
+	if f := check(t, config()); len(f) == 0 {
+		t.Fatal("default deployment accepted egress")
+	}
+}
+
 func TestViolationsAreReported(t *testing.T) {
 	cases := map[string]struct {
 		mutate func(map[string]any)

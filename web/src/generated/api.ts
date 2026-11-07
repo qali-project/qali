@@ -288,6 +288,104 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/methods": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sign-in methods offered on the login page */
+        get: operations["getAuthMethods"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/oidc/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Begin sign-in, or invitation acceptance, with the identity provider
+         * @description Creates a single-use authorization request valid for 10 minutes and sets a short-lived browser-binding cookie. The browser then navigates to the returned URL. Answers 404 when no verified provider exists.
+         */
+        post: operations["startOidcSignIn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/oidc/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Redirect target registered with the identity provider
+         * @description Consumes the authorization request once, validates the provider's answer, and redirects to the web application. Every failure redirects to the login page with a generic error; nothing from the provider is echoed.
+         */
+        get: operations["completeOidcSignIn"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/oidc/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Begin linking the signed-in account to the identity provider
+         * @description Needs recent MFA when the account has TOTP, otherwise the current password.
+         */
+        post: operations["startOidcLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/oidc/identity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The signed-in account's linked provider identity */
+        get: operations["getOwnOidcIdentity"];
+        put?: never;
+        post?: never;
+        /**
+         * Unlink the signed-in account from the identity provider
+         * @description Refused with 409 sign_in_method_required when the account would have no remaining way to sign in.
+         */
+        delete: operations["unlinkOwnOidcIdentity"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/invitations/preview": {
         parameters: {
             query?: never;
@@ -543,6 +641,107 @@ export interface paths {
         patch: operations["updateProjectMember"];
         trace?: never;
     };
+    "/api/v1/workspaces/{workspaceId}/members/{userId}/oidc-identity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                userId: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Unlink a member's provider identity
+         * @description Needs security.manage_sso and recent MFA. Refused with 409 sign_in_method_required when the member would have no remaining way to sign in.
+         */
+        delete: operations["unlinkMemberOidcIdentity"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workspaces/{workspaceId}/security/oidc-provider": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The installation's identity provider, without its secret
+         * @description Needs security.read. Exists only in the primary workspace; 404 when no provider is configured.
+         */
+        get: operations["getOidcProvider"];
+        /**
+         * Configure or replace the identity provider
+         * @description Needs security.manage_sso and recent MFA. Replacing needs If-Match. The provider is checked through discovery before it is saved. A new provider, or a changed issuer or client ID, is a draft until verified; local login is then re-enabled automatically.
+         */
+        put: operations["putOidcProvider"];
+        post?: never;
+        /**
+         * Remove the identity provider and every linked identity
+         * @description Needs security.manage_sso and recent MFA. Local login is re-enabled.
+         */
+        delete: operations["deleteOidcProvider"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workspaces/{workspaceId}/security/oidc-provider/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify the provider by signing in with it once
+         * @description Needs security.manage_sso and recent MFA. Success marks the provider verified and links the administrator's identity.
+         */
+        post: operations["startOidcVerification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workspaces/{workspaceId}/security/login-policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Installation-wide login policy
+         * @description Needs security.read. Exists only in the primary workspace.
+         */
+        get: operations["getLoginPolicy"];
+        /**
+         * Enable or disable local password login
+         * @description Needs security.update and recent MFA. Disabling needs a verified provider (409 oidc_not_verified). Owners keep break-glass password login with TOTP.
+         */
+        put: operations["putLoginPolicy"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -741,6 +940,67 @@ export interface components {
         EnrollmentResult: {
             session: components["schemas"]["Session"];
             recoveryCodes: string[];
+        };
+        AuthMethods: {
+            /** @description Whether password login is offered to everyone. When false, only Owners may still sign in with a password and TOTP. */
+            localLogin: boolean;
+            /** @description The verified provider, or null when none is available. */
+            oidc: components["schemas"]["AuthMethodOidc"] | null;
+        };
+        AuthMethodOidc: {
+            label: string;
+        };
+        OidcStart: {
+            /** @enum {string} */
+            purpose: "login" | "invitation";
+            /** @description Required for purpose invitation; the qali_inv_ token from the link. */
+            invitationToken?: string;
+        };
+        OidcLinkStart: {
+            /** @description The current password, when the account has no TOTP. */
+            password?: string;
+        };
+        OidcAuthorization: {
+            /** Format: uri */
+            authorizationUrl: string;
+        };
+        OidcIdentity: {
+            issuer: string;
+            /** Format: date-time */
+            linkedAt: string;
+            /** Format: date-time */
+            lastLoginAt?: string | null;
+        };
+        /** @enum {string} */
+        OidcProviderStatus: "draft" | "verified";
+        OidcProvider: {
+            issuer: string;
+            clientId: string;
+            label: string;
+            /** @description The secret itself is never returned. */
+            clientSecretSet: boolean;
+            status: components["schemas"]["OidcProviderStatus"];
+            /** @description The redirect URI to register with the provider. */
+            redirectUri: string;
+            /** Format: date-time */
+            verifiedAt?: string | null;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        OidcProviderInput: {
+            /** @description https issuer URL, exactly as the provider reports it. */
+            issuer: string;
+            clientId: string;
+            /** @description Required when creating; omit to keep the stored secret. */
+            clientSecret?: string;
+            /** @description Button text on the login page. */
+            label: string;
+        };
+        LoginPolicy: {
+            localLogin: boolean;
+        };
+        LoginPolicyInput: {
+            localLogin: boolean;
         };
         Liveness: {
             /** @enum {string} */
@@ -1165,6 +1425,142 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Session"];
                 };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getAuthMethods: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Available sign-in methods. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthMethods"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    startOidcSignIn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OidcStart"];
+            };
+        };
+        responses: {
+            /** @description Authorization request created. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OidcAuthorization"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    completeOidcSignIn: {
+        parameters: {
+            query?: {
+                state?: string;
+                code?: string;
+                error?: string;
+                iss?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redirect to the web application; a session cookie may be set. */
+            303: {
+                headers: {
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    startOidcLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OidcLinkStart"];
+            };
+        };
+        responses: {
+            /** @description Authorization request created. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OidcAuthorization"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getOwnOidcIdentity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The linked identity; 404 when none is linked. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OidcIdentity"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    unlinkOwnOidcIdentity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Unlinked. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Problem"];
         };
@@ -1618,6 +2014,185 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProjectMember"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    unlinkMemberOidcIdentity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                userId: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Unlinked. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getOidcProvider: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The provider. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OidcProvider"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    putOidcProvider: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The ETag ("<version>") of the representation being changed. Missing answers 428; stale answers 412 (ADR-0003). */
+                "If-Match"?: components["parameters"]["IfMatch"];
+            };
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OidcProviderInput"];
+            };
+        };
+        responses: {
+            /** @description The saved provider. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OidcProvider"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    deleteOidcProvider: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The ETag ("<version>") of the representation being changed. Missing answers 428; stale answers 412 (ADR-0003). */
+                "If-Match"?: components["parameters"]["IfMatch"];
+            };
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    startOidcVerification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Authorization request created. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OidcAuthorization"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getLoginPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The policy. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginPolicy"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    putLoginPolicy: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The ETag ("<version>") of the representation being changed. Missing answers 428; stale answers 412 (ADR-0003). */
+                "If-Match"?: components["parameters"]["IfMatch"];
+            };
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginPolicyInput"];
+            };
+        };
+        responses: {
+            /** @description The updated policy. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginPolicy"];
                 };
             };
             default: components["responses"]["Problem"];

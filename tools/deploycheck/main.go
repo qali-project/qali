@@ -82,6 +82,10 @@ func CheckCompose(data []byte) ([]string, error) {
 }
 
 func checkCompose(data []byte, httpsPort string) ([]string, error) {
+	return checkComposeProfile(data, httpsPort, false)
+}
+
+func checkComposeProfile(data []byte, httpsPort string, oidc bool) ([]string, error) {
 	var c compose
 	if err := json.Unmarshal(data, &c); err != nil {
 		return nil, fmt.Errorf("decode compose configuration: %w", err)
@@ -162,6 +166,31 @@ func checkCompose(data []byte, httpsPort string) ([]string, error) {
 	}
 	if _, ok := c.Services["qali"].Networks["edge"]; ok {
 		add("qali must not join the edge network")
+	}
+	expected := []string{"app", "data"}
+	if oidc {
+		expected = append(expected, "egress")
+		if n, ok := c.Networks["egress"]; !ok || n.Internal {
+			add("OIDC egress network must allow outbound traffic")
+		}
+	}
+	if nets := keys(c.Services["qali"].Networks); !slices.Equal(nets, expected) {
+		add("qali networks must be %v, joins %v", expected, nets)
+	}
+	for name, n := range c.Networks {
+		if name == "edge" || name == "app" || name == "data" {
+			continue
+		}
+		if !oidc || name != "egress" {
+			add("unexpected network %s", name)
+		}
+		if !n.Internal {
+			for svc, s := range c.Services {
+				if _, joined := s.Networks[name]; joined && (!oidc || name != "egress" || svc != "qali") {
+					add("%s must not join outbound network %s", svc, name)
+				}
+			}
+		}
 	}
 	if _, ok := proxy.Networks["data"]; ok {
 		add("proxy must not join the data network")
@@ -252,6 +281,17 @@ func static() error {
 	env := []string{"QALI_DOMAIN=qali.example.org", "QALI_SECRETS_DIR=./secrets"}
 	if err := render(context.Background(), env, "443"); err != nil {
 		return err
+	}
+	out, err := dockerCompose(context.Background(), env, "-f", "deploy/compose/compose.oidc.yaml", "config", "--format", "json").Output()
+	if err != nil {
+		return fmt.Errorf("render OIDC override: %w", err)
+	}
+	findings, err := checkComposeProfile(out, "443", true)
+	if err != nil {
+		return err
+	}
+	if len(findings) > 0 {
+		return fmt.Errorf("OIDC deployment findings: %s", strings.Join(findings, "; "))
 	}
 	fmt.Println("deploycheck: static configuration OK")
 	return nil

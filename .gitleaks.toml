@@ -12,6 +12,6 @@ paths = [
   '''^internal/platform/webui/dist/app/''',
   '''^web/(playwright-report|test-results)/''',
   '''(^|/)go\.sum$''',
-  '''^tools/mod/.*\.sum$''',
+  '''(^|/)tools/mod/[^/]+\.sum$''',
   '''(^|/)package-lock\.json$''',
 ]
