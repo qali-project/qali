@@ -38,6 +38,8 @@ expect_success() {
   local name=$1; shift
   if "$@" >>"$logs/$name.log" 2>&1; then return 0; fi
   fail "$name" "'$*' failed on an unmodified clean checkout"
+  # Keep the cause visible in CI before the temporary fixture is removed.
+  tail -n 100 "$logs/$name.log" >&2
   return 1
 }
 
