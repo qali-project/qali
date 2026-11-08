@@ -20,7 +20,7 @@ func newOIDCFixture(t *testing.T) *oidcFixture {
 	t.Helper()
 	s := newAuthServer(t)
 	f := s.adminFixture()
-	issuer, err := oidctest.New(s.clock.Now)
+	issuer, err := oidctest.New(s.clock.Now, "https://qali.example.org/api/v1/auth/oidc/callback")
 	if err != nil {
 		t.Fatal(err)
 	}

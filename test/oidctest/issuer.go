@@ -33,14 +33,19 @@ type Issuer struct {
 	now         func() time.Time
 	exchanges   int
 	unavailable bool
+	redirectURI string
 }
 
-func New(now func() time.Time) (*Issuer, error) {
+func New(now func() time.Time, redirectURI string) (*Issuer, error) {
+	callback, err := url.Parse(redirectURI)
+	if err != nil || callback.Hostname() == "" || (callback.Scheme != "http" && callback.Scheme != "https") || callback.User != nil || callback.Opaque != "" || callback.Fragment != "" || callback.RawQuery != "" || callback.Path != "/api/v1/auth/oidc/callback" {
+		return nil, fmt.Errorf("invalid registered redirect URI")
+	}
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		return nil, err
 	}
-	f := &Issuer{key: key, codes: map[string]authorization{}, now: now}
+	f := &Issuer{key: key, codes: map[string]authorization{}, now: now, redirectURI: redirectURI}
 	f.Server = httptest.NewServer(http.HandlerFunc(f.serve))
 	return f, nil
 }
@@ -55,7 +60,7 @@ func (f *Issuer) Authorize(raw, subject, email string, verified bool) (string, e
 		return "", err
 	}
 	q := u.Query()
-	if u.Scheme+"://"+u.Host != f.URL() || q.Get("client_id") != ClientID || q.Get("code_challenge_method") != "S256" || q.Get("response_type") != "code" {
+	if u.Scheme+"://"+u.Host != f.URL() || q.Get("client_id") != ClientID || q.Get("code_challenge_method") != "S256" || q.Get("response_type") != "code" || q.Get("redirect_uri") != f.redirectURI {
 		return "", fmt.Errorf("invalid authorization request")
 	}
 	var random [32]byte
@@ -64,9 +69,9 @@ func (f *Issuer) Authorize(raw, subject, email string, verified bool) (string, e
 	}
 	code := base64.RawURLEncoding.EncodeToString(random[:])
 	f.mu.Lock()
-	f.codes[code] = authorization{Nonce: q.Get("nonce"), Challenge: q.Get("code_challenge"), Redirect: q.Get("redirect_uri"), Subject: subject, Email: email, Verified: verified}
+	f.codes[code] = authorization{Nonce: q.Get("nonce"), Challenge: q.Get("code_challenge"), Redirect: f.redirectURI, Subject: subject, Email: email, Verified: verified}
 	f.mu.Unlock()
-	callback, err := url.Parse(q.Get("redirect_uri"))
+	callback, err := url.Parse(f.redirectURI)
 	if err != nil {
 		return "", err
 	}
@@ -110,7 +115,7 @@ func (f *Issuer) serve(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "invalid authorization", http.StatusBadRequest)
 			return
 		}
-		http.Redirect(w, r, callback, http.StatusFound) //nolint:gosec // G710: test-only OAuth issuer redirects to the supplied relying party.
+		http.Redirect(w, r, callback, http.StatusFound) //nolint:gosec // G710: origin/path are constructor-registered; request data appears only in escaped OAuth query parameters.
 	case "/token":
 		if err := r.ParseForm(); err != nil {
 			http.Error(w, "invalid form", http.StatusBadRequest)

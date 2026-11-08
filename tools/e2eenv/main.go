@@ -16,6 +16,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -45,7 +46,17 @@ func run() int {
 	}
 
 	ctx := context.Background()
-	issuer, err := oidctest.New(time.Now)
+	basePort := 18473
+	if value := os.Getenv("QALI_E2E_PORT"); value != "" {
+		port, err := strconv.Atoi(value)
+		if err != nil || port < 1 || port > 65533 {
+			fmt.Fprintln(os.Stderr, "e2eenv: invalid QALI_E2E_PORT")
+			return 2
+		}
+		basePort = port
+	}
+	// Playwright's isolated OIDC suite uses the third server, after auth/admin.
+	issuer, err := oidctest.New(time.Now, fmt.Sprintf("http://127.0.0.1:%d/api/v1/auth/oidc/callback", basePort+2))
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "e2eenv:", err)
 		return 1
