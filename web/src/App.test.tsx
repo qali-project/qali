@@ -51,10 +51,49 @@ const ready = {
 };
 const signedOut = {
   ...ready,
+  "GET /api/v1/auth/methods": () => ({ status: 200, body: { localLogin: true, oidc: null } }),
   "GET /api/v1/auth/session": () => ({ status: 401, body: { code: "unauthenticated" } }),
 };
 
 describe("App", () => {
+  it("shows a cancelled provider callback to an already signed-in account", async () => {
+    const { client } = server({
+      ...signedOut,
+      "GET /api/v1/auth/session": () => ({ status: 200, body: session("active") }),
+    });
+    render(<App client={client} initialPath="/login?oidc=failed" />);
+    expect(
+      await screen.findByText("Provider sign-in failed. Try again or contact your administrator."),
+    ).toBeVisible();
+    expect(screen.getByRole("link", { name: "Return to Qali" })).toHaveAttribute("href", "/");
+  });
+  it("offers verified provider sign-in and explains emergency Owner access", async () => {
+    const { client } = server({
+      ...signedOut,
+      "GET /api/v1/auth/methods": () => ({
+        status: 200,
+        body: { localLogin: false, oidc: { label: "Company" } },
+      }),
+      "POST /api/v1/auth/oidc/start": () => ({ status: 409, body: { code: "oidc_not_verified" } }),
+    });
+    render(<App client={client} initialPath="/login" />);
+    await userEvent
+      .setup()
+      .click(await screen.findByRole("button", { name: "Continue with Company" }));
+    expect(
+      await screen.findByText("Provider sign-in is unavailable. Try again later."),
+    ).toBeVisible();
+    expect(screen.getByText(/Password sign-in is available only to Owners/)).toBeVisible();
+  });
+
+  it("reports provider callback failures without exposing provider details", async () => {
+    const { client } = server(signedOut);
+    render(<App client={client} initialPath="/login?oidc=failed" />);
+    expect(
+      await screen.findByText("Provider sign-in failed. Try again or contact your administrator."),
+    ).toBeVisible();
+  });
+
   it("sends a fresh installation to owner setup", async () => {
     const { client } = server({
       "GET /api/v1/setup": () => ({ status: 200, body: { bootstrapRequired: true } }),

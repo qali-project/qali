@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { Link, useNavigate } from "react-router";
+import { Link, useNavigate, useLocation } from "react-router";
 import { z } from "zod";
 
 import { problemCode, type Session } from "../../api/client";
@@ -9,6 +9,7 @@ import { usePageTitle } from "../../app/title";
 import { FormError, TextField } from "../../components/TextField";
 import { useAuth } from "./AuthContext";
 import { destination, messageFor } from "./destination";
+import { OIDCSignIn } from "./OIDCSignIn";
 
 const email = z.string().trim().email("Enter a valid email address.").max(254);
 const newPassword = z
@@ -93,7 +94,8 @@ const loginSchema = z.object({
 
 export function LoginPage() {
   usePageTitle("Sign in");
-  const { client, signedIn } = useAuth();
+  const { client, signedIn, session } = useAuth();
+  const callbackFailed = new URLSearchParams(useLocation().search).get("oidc") === "failed";
   const navigate = useNavigate();
   const [error, setError] = useState<string>();
   const form = useForm<z.infer<typeof loginSchema>>({ resolver: zodResolver(loginSchema) });
@@ -108,6 +110,11 @@ export function LoginPage() {
   return (
     <section aria-labelledby="login-title">
       <h2 id="login-title">Sign in</h2>
+      {callbackFailed && (
+        <p role="alert">Provider sign-in failed. Try again or contact your administrator.</p>
+      )}
+      {callbackFailed && session?.state === "active" && <Link to="/">Return to Qali</Link>}
+      <OIDCSignIn />
       <form onSubmit={(ev) => void onSubmit(ev)} noValidate>
         <TextField
           label="Email"

@@ -7,12 +7,14 @@ import (
 	"errors"
 	"net/netip"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
 	"github.com/google/uuid"
 
 	"github.com/qali-project/qali/internal/identity/domain"
+	"github.com/qali-project/qali/internal/identity/oidc"
 	"github.com/qali-project/qali/internal/platform/audit"
 	"github.com/qali-project/qali/internal/platform/clock"
 	"github.com/qali-project/qali/internal/platform/crypto"
@@ -36,13 +38,21 @@ type Config struct {
 	Clock     clock.Clock
 	NewID     func() (uuid.UUID, error)
 	// Issuer labels TOTP entries in authenticator apps.
-	Issuer string
+	Issuer               string
+	OIDC                 oidc.Config
+	Security             SecurityAuthorizer
+	SecurityMember       func(context.Context, db.Querier, uuid.UUID) error
+	AcceptOIDCInvitation OIDCInvitationAcceptor
 }
 
 // Service implements the identity use cases.
 type Service struct {
-	cfg       Config
-	dummyHash string
+	cfg            Config
+	dummyHash      string
+	oidcMu         sync.Mutex
+	oidcClient     *oidc.Client
+	oidcProviderID uuid.UUID
+	oidcVersion    int32
 }
 
 // New returns a service. It precomputes a dummy password hash so that
@@ -91,6 +101,7 @@ type Current struct {
 	mfaVerifiedAt *time.Time
 	csrf          []byte
 	csrfToken     secret.Value
+	authMethod    string
 }
 
 type currentKey struct{}
@@ -229,7 +240,7 @@ func (s *Service) Bootstrap(ctx context.Context, in BootstrapInput, m RequestMet
 		} else if !used {
 			return ErrInvalidSetupToken // a concurrent bootstrap used it
 		}
-		if err := s.cfg.Repo.InsertInstallation(ctx, tx, userID, now); err != nil {
+		if err := s.cfg.Repo.InsertInstallation(ctx, tx, userID, workspaceID, now); err != nil {
 			if errors.Is(db.MapError(err), db.ErrConflict) {
 				return ErrAlreadyBootstrapped
 			}
@@ -478,6 +489,10 @@ func (s *Service) Login(ctx context.Context, rawEmail string, password secret.Va
 	}
 	var grant Grant
 	err = s.cfg.Store.Write(ctx, s.systemScope(userActor(u.ID), m), func(ctx context.Context, tx *db.WriteTx) error {
+		breakGlass, err := s.passwordLoginAllowed(ctx, tx, u, m)
+		if err != nil {
+			return err
+		}
 		if newHash != "" {
 			if err := s.cfg.Repo.SetPassword(ctx, tx, u.ID, newHash, s.now()); err != nil {
 				return err
@@ -486,9 +501,13 @@ func (s *Service) Login(ctx context.Context, rawEmail string, password secret.Va
 		if err := s.clearThrottle(ctx, tx, acct, "account"); err != nil {
 			return err
 		}
-		var err error
 		if grant, err = s.issueSession(ctx, tx, u, state, "password", nil, m); err != nil {
 			return err
+		}
+		if breakGlass {
+			if err := tx.Audit(ctx, audit.Entry{Action: "auth.break_glass_login", TargetType: "user", TargetID: u.ID.String(), Outcome: audit.Success, Metadata: map[string]any{"severity": "high"}}); err != nil {
+				return err
+			}
 		}
 		return tx.Audit(ctx, audit.Entry{Action: "auth.login", TargetType: "user", TargetID: u.ID.String(), Outcome: audit.Success,
 			Metadata: map[string]any{"state": string(state), "rehashed": newHash != ""}})
@@ -560,6 +579,7 @@ func (s *Service) Authenticate(ctx context.Context, token secret.Value, m Reques
 		SessionID: rec.ID, View: s.view(u, rec.Lifetime),
 		RecentMFA: domain.RecentMFA(rec.MFAVerifiedAt, now), mfaVerifiedAt: rec.MFAVerifiedAt,
 		csrf: rec.CSRFVerifier, csrfToken: secret.New(s.csrfFor(token)),
+		authMethod: rec.AuthMethod,
 	}, nil
 }
 
@@ -659,7 +679,11 @@ func (s *Service) rotate(ctx context.Context, tx *db.WriteTx, c Current, u User,
 	if state == domain.StateActive && u.TOTPConfirmedAt != nil {
 		mfaAt = &now
 	}
-	return s.issueSession(ctx, tx, u, state, "password", mfaAt, m)
+	method := "password"
+	if c.authMethod == "oidc" {
+		method = "oidc"
+	}
+	return s.issueSession(ctx, tx, u, state, method, mfaAt, m)
 }
 
 // CompleteMFAChallenge activates an mfa_challenge session with a TOTP code.

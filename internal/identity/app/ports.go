@@ -79,7 +79,7 @@ type SetupToken struct {
 // transaction. Missing rows return db.ErrNotFound.
 type Repository interface {
 	InstallationExists(ctx context.Context, q db.Querier) (bool, error)
-	InsertInstallation(ctx context.Context, q db.Querier, owner uuid.UUID, at time.Time) error
+	InsertInstallation(ctx context.Context, q db.Querier, owner, workspace uuid.UUID, at time.Time) error
 	InsertUser(ctx context.Context, q db.Querier, u User, at time.Time) error
 	UserByEmail(ctx context.Context, q db.Querier, email string) (User, error)
 	UserByID(ctx context.Context, q db.Querier, id uuid.UUID) (User, error)

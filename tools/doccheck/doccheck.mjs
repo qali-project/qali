@@ -22,7 +22,7 @@ const ACCEPTANCE_DIR = "docs/acceptance";
 const ACCEPTANCE_TEMPLATE = "docs/acceptance/TEMPLATE.md";
 
 const REQUIRED_FILES = [PLAN, ADR_INDEX, CATALOG, MATRIX, ACCEPTANCE_TEMPLATE];
-const SKIPPED_DIRS = new Set([".git", "node_modules", "dist", "build", "coverage"]);
+const SKIPPED_DIRS = new Set([".git", ".claude", "node_modules", "dist", "build", "coverage"]);
 
 const MVP_STATUSES = ["COMPLETE", "IN_PROGRESS", "NOT_STARTED"];
 const ADR_STATUS = /^(Proposed|Accepted|Deprecated|Superseded by ADR-(\d{4}))$/;

@@ -13,6 +13,7 @@ import (
 
 	"github.com/qali-project/qali/internal/identity/app"
 	"github.com/qali-project/qali/internal/identity/domain"
+	"github.com/qali-project/qali/internal/platform/db"
 	"github.com/qali-project/qali/internal/platform/httpserver"
 	"github.com/qali-project/qali/internal/platform/httpserver/openapi"
 	"github.com/qali-project/qali/internal/platform/secret"
@@ -121,6 +122,20 @@ func sessionBody(g app.Grant) openapi.Session {
 func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 	var throttled *app.ThrottledError
 	switch {
+	case errors.Is(err, app.ErrNotFound), errors.Is(err, db.ErrNotFound):
+		httpserver.WriteProblem(w, r, http.StatusNotFound, "not_found")
+	case errors.Is(err, app.ErrForbidden):
+		httpserver.WriteProblem(w, r, http.StatusForbidden, "forbidden")
+	case errors.Is(err, app.ErrRecentMFARequired):
+		httpserver.WriteProblem(w, r, http.StatusForbidden, "recent_mfa_required")
+	case errors.Is(err, app.ErrIfMatchRequired):
+		httpserver.WriteProblem(w, r, http.StatusPreconditionRequired, "if_match_required")
+	case errors.Is(err, app.ErrVersionMismatch):
+		httpserver.WriteProblem(w, r, http.StatusPreconditionFailed, "version_mismatch")
+	case errors.Is(err, app.ErrOIDCUnavailable):
+		httpserver.WriteProblem(w, r, http.StatusConflict, "oidc_not_verified")
+	case errors.Is(err, app.ErrNoAlternativeLogin):
+		httpserver.WriteProblem(w, r, http.StatusConflict, "sign_in_method_required")
 	case errors.As(err, &throttled):
 		w.Header().Set("Retry-After", strconv.Itoa(int(math.Ceil(throttled.RetryAfter.Seconds()))))
 		httpserver.WriteProblem(w, r, http.StatusTooManyRequests, "too_many_attempts")

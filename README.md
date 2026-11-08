@@ -33,6 +33,34 @@ Docker Compose and consists of:
 Only the HTTPS endpoint is exposed by default. The application and database
 remain on private container networks.
 
+### Optional OpenID Connect sign-in
+
+Qali supports one discovery-based OpenID Connect provider per installation.
+Owners configure it under **Security** in the primary workspace, copy the
+displayed redirect URI to the provider, and complete **Verify provider**.
+Accounts can link a provider from **Account**, or use a verified email matching
+an existing account. New accounts require an invitation.
+
+Outbound provider access is opt-in. Add the override to every Compose command:
+
+```sh
+docker compose -f deploy/compose/compose.yaml -f deploy/compose/compose.oidc.yaml up -d
+```
+
+The override gives outbound access only to Qali. PostgreSQL stays isolated;
+only HTTPS port 443 is published. Issuer and provider endpoints require HTTPS
+and public addresses by default. For a private, self-hosted issuer, explicitly
+set `QALI_OIDC_ALLOW_PRIVATE_ISSUER=true` before starting Compose. This permits
+private addresses only for the configured issuer hostname. The container must
+trust the issuer's TLS certificate.
+
+After verification, an Owner or Workspace Administrator can disable ordinary
+password sign-in. Owners retain emergency password **and Qali TOTP** access;
+keep an Owner password and authenticator available during provider outages.
+Provider sign-in also preserves Qali's MFA requirements. Changing provider
+credentials resets verification and re-enables password sign-in. Removing or
+changing the issuer is refused while active linked accounts have no password.
+
 ## Security
 
 Qali is designed around workspace isolation, least-privilege access, protected

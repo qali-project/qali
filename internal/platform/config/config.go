@@ -27,14 +27,15 @@ const (
 
 // Config is the validated process configuration.
 type Config struct {
-	Environment    Environment
-	PublicURL      *url.URL
-	HTTPAddr       string
-	TrustedProxies []netip.Prefix
-	DatabaseURL    secret.Value
-	KEK            secret.Value
-	TokenPepper    secret.Value
-	PasswordPepper secret.Value
+	Environment            Environment
+	PublicURL              *url.URL
+	HTTPAddr               string
+	TrustedProxies         []netip.Prefix
+	DatabaseURL            secret.Value
+	KEK                    secret.Value
+	TokenPepper            secret.Value
+	PasswordPepper         secret.Value
+	OIDCAllowPrivateIssuer bool
 }
 
 // Source abstracts the process environment for deterministic tests.
@@ -81,6 +82,13 @@ func Load(src Source) (Config, error) {
 	cfg.PublicURL = l.publicURL(cfg.Environment)
 	cfg.HTTPAddr = l.optional("QALI_HTTP_ADDR", ":8080")
 	cfg.TrustedProxies = l.trustedProxies()
+	switch v := l.optional("QALI_OIDC_ALLOW_PRIVATE_ISSUER", "false"); v {
+	case "true":
+		cfg.OIDCAllowPrivateIssuer = true
+	case "false":
+	default:
+		l.problem("QALI_OIDC_ALLOW_PRIVATE_ISSUER must be true or false")
+	}
 	cfg.DatabaseURL = l.databaseURL("QALI_DATABASE_URL_FILE")
 
 	keys := []struct {

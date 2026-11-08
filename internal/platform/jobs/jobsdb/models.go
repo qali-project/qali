@@ -40,9 +40,12 @@ type QaliEncryptionKey struct {
 }
 
 type QaliInstallation struct {
-	Singleton      bool
-	OwnerUserID    uuid.UUID
-	BootstrappedAt time.Time
+	Singleton          bool
+	OwnerUserID        uuid.UUID
+	BootstrappedAt     time.Time
+	PrimaryWorkspaceID uuid.UUID
+	LocalLoginEnabled  bool
+	LoginPolicyVersion int32
 }
 
 type QaliInvitation struct {
@@ -90,6 +93,41 @@ type QaliLoginThrottle struct {
 	Failures      int32
 	NextAllowedAt time.Time
 	UpdatedAt     time.Time
+}
+
+type QaliOidcFlow struct {
+	ID              uuid.UUID
+	LookupID        string
+	StateVerifier   []byte
+	NonceVerifier   []byte
+	BindingVerifier []byte
+	KeyVersion      int32
+	ProviderID      uuid.UUID
+	Purpose         string
+	UserID          *uuid.UUID
+	SealedDekID     string
+	SealedNonce     []byte
+	SealedPayload   []byte
+	CreatedAt       time.Time
+	ExpiresAt       time.Time
+	ConsumedAt      *time.Time
+}
+
+type QaliOidcProvider struct {
+	Singleton        bool
+	ID               uuid.UUID
+	Issuer           string
+	ClientID         string
+	Label            string
+	SecretDekID      string
+	SecretNonce      []byte
+	SecretCiphertext []byte
+	Status           string
+	VerifiedAt       *time.Time
+	VerifiedBy       *uuid.UUID
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+	Version          int32
 }
 
 type QaliPasswordReset struct {
@@ -181,6 +219,16 @@ type QaliUser struct {
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 	Version           int32
+}
+
+type QaliUserIdentity struct {
+	ID          uuid.UUID
+	UserID      uuid.UUID
+	Issuer      string
+	Subject     string
+	LinkMethod  string
+	LinkedAt    time.Time
+	LastLoginAt *time.Time
 }
 
 type QaliWorkspace struct {

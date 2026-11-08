@@ -10,6 +10,7 @@ import { usePageTitle } from "../../app/title";
 import { FormError, TextField } from "../../components/TextField";
 import { useAuth } from "../auth/AuthContext";
 import { destination } from "../auth/destination";
+import { OIDCSignIn, useAuthMethods } from "../auth/OIDCSignIn";
 import { adminMessage, rememberWorkspace, roleLabels } from "./workspace";
 
 const accountSchema = z.object({
@@ -73,6 +74,7 @@ function InvalidInvitation({ message }: { message: string }) {
 
 function CreateAccount({ token, email }: { token: string; email: string }) {
   const { client, signedIn } = useAuth();
+  const methods = useAuthMethods();
   const navigate = useNavigate();
   const [error, setError] = useState<string>();
   const form = useForm<z.infer<typeof accountSchema>>({ resolver: zodResolver(accountSchema) });
@@ -89,27 +91,30 @@ function CreateAccount({ token, email }: { token: string; email: string }) {
   return (
     <>
       <h3>Create your account</h3>
-      <form onSubmit={(ev) => void onSubmit(ev)} noValidate>
-        <TextField label="Email" type="email" autoComplete="username" readOnly value={email} />
-        <TextField
-          label="Your name"
-          autoComplete="name"
-          error={e.displayName?.message}
-          {...form.register("displayName")}
-        />
-        <TextField
-          label="Password"
-          type="password"
-          autoComplete="new-password"
-          hint="At least 12 characters."
-          error={e.password?.message}
-          {...form.register("password")}
-        />
-        <FormError message={error} />
-        <button type="submit" disabled={form.formState.isSubmitting}>
-          Create account and join
-        </button>
-      </form>
+      <OIDCSignIn invitationToken={token} />
+      {methods.data?.localLogin !== false && (
+        <form onSubmit={(ev) => void onSubmit(ev)} noValidate>
+          <TextField label="Email" type="email" autoComplete="username" readOnly value={email} />
+          <TextField
+            label="Your name"
+            autoComplete="name"
+            error={e.displayName?.message}
+            {...form.register("displayName")}
+          />
+          <TextField
+            label="Password"
+            type="password"
+            autoComplete="new-password"
+            hint="At least 12 characters."
+            error={e.password?.message}
+            {...form.register("password")}
+          />
+          <FormError message={error} />
+          <button type="submit" disabled={form.formState.isSubmitting}>
+            Create account and join
+          </button>
+        </form>
+      )}
       <p>
         Already have an account? <Link to="/login">Sign in</Link>, then open the invitation link
         again.

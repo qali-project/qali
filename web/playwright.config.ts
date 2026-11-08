@@ -15,7 +15,10 @@ const allBrowsers = process.env.QALI_E2E_ALL_BROWSERS === "1";
 // and database (tools/e2eenv creates one database per suite). The first
 // suite runs every spec that no other suite claims, so a new spec file can
 // never be skipped silently.
-const isolated = [{ name: "admin", testMatch: /admin\.spec\.ts/ }];
+const isolated = [
+  { name: "admin", testMatch: /admin\.spec\.ts/ },
+  { name: "oidc", testMatch: /oidc\.spec\.ts/ },
+];
 const suites = [
   { name: "auth", testMatch: /.*\.spec\.ts/, testIgnore: isolated.map((s) => s.testMatch) },
   ...isolated.map((s) => ({ ...s, testIgnore: [] as RegExp[] })),
@@ -55,6 +58,7 @@ export default defineConfig({
     env: {
       ...process.env,
       QALI_ENV: "development",
+      QALI_OIDC_ALLOW_PRIVATE_ISSUER: "true",
       QALI_HTTP_ADDR: `127.0.0.1:${suite.port}`,
       QALI_PUBLIC_URL: suite.baseURL,
       QALI_DATABASE_URL_FILE: `${secrets}/${suite.name}/database_url`,

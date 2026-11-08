@@ -94,6 +94,10 @@ function MainNav() {
         Home
       </NavLink>
       <NavLink to={inWorkspace(ws.data, "/projects")}>Projects</NavLink>
+      <NavLink to="/account">Account</NavLink>
+      {ws.data.permissions.includes("security.read") && (
+        <NavLink to={inWorkspace(ws.data, "/security")}>Security</NavLink>
+      )}
       {canAdminister(ws.data) && (
         <NavLink to={inWorkspace(ws.data, "/admin/members")}>Members</NavLink>
       )}
@@ -144,14 +148,19 @@ function InPreferredWorkspace({ path = "" }: { path?: string }) {
 /** Sends visitors to the page their setup and session state require. */
 function Gate() {
   const { loading, failed, setupRequired, session } = useAuth();
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   if (loading) {
     return <p role="status">Loading…</p>;
   }
   if (failed) {
     return <p role="alert">The service is unavailable. Try again later.</p>;
   }
-  if (!allowedPath(pathname, setupRequired, session)) {
+  const activeCallbackFailure =
+    !setupRequired &&
+    session?.state === "active" &&
+    pathname === "/login" &&
+    new URLSearchParams(search).get("oidc") === "failed";
+  if (!allowedPath(pathname, setupRequired, session) && !activeCallbackFailure) {
     return <Navigate to={destination(setupRequired, session)} replace />;
   }
   return (
@@ -163,6 +172,8 @@ function Gate() {
       <Route path="/mfa/enroll" element={<EnrollPage />} />
       <Route path="/mfa/challenge" element={<ChallengePage />} />
       <Route path="/invite" element={<InvitePage />} />
+      <Route path="/account" element={<AccountPage />} />
+      <Route path="/w/:workspaceId/security" element={<SecurityPage />} />
       <Route path="/w/:workspaceId" element={<WorkspaceHome />} />
       <Route path="/w/:workspaceId/projects" element={<ProjectsPage />} />
       <Route path="/w/:workspaceId/projects/:projectId/access" element={<ProjectAccessPage />} />
@@ -229,3 +240,5 @@ function ServiceStatus() {
     </p>
   );
 }
+import { SecurityPage } from "./features/admin/SecurityPage";
+import { AccountPage } from "./features/auth/AccountPage";

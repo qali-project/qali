@@ -25,6 +25,7 @@ import (
 	"github.com/qali-project/qali/internal/identity/adapter/postgres"
 	"github.com/qali-project/qali/internal/identity/app"
 	"github.com/qali-project/qali/internal/identity/domain"
+	"github.com/qali-project/qali/internal/identity/oidc"
 	"github.com/qali-project/qali/internal/platform/clock"
 	"github.com/qali-project/qali/internal/platform/crypto"
 	"github.com/qali-project/qali/internal/platform/db"
@@ -77,7 +78,7 @@ func key32(t *testing.T) secret.Value {
 	return secret.New(b)
 }
 
-func newAuthServer(t *testing.T) *authServer {
+func newAuthServer(t *testing.T, options ...func(*app.Config)) *authServer {
 	t.Helper()
 	d := migratedDatabase(t)
 	c := clock.NewManual(time.Date(2026, 10, 22, 12, 0, 0, 0, time.UTC))
@@ -99,15 +100,21 @@ func newAuthServer(t *testing.T) *authServer {
 	if err != nil {
 		t.Fatal(err)
 	}
-	svc := app.New(app.Config{
+	var workspaces *workspaceapp.Service
+	cfg := assembly.IdentityWorkspace(app.Config{
 		Store: store, Repo: postgres.Repository{}, Passwords: passwords, Tokens: tokens, Keyring: keyring,
 		Clock: c, NewID: uuid.NewV7, Issuer: "Qali",
-	})
+		OIDC: oidc.Config{PublicURL: "https://qali.example.org", Development: true, AllowPrivateIssuer: true, Clock: c},
+	}, func() *workspaceapp.Service { return workspaces })
+	for _, option := range options {
+		option(&cfg)
+	}
+	svc := app.New(cfg)
 	logs, mu := &bytes.Buffer{}, &sync.Mutex{}
 	logger := slog.New(slog.NewJSONHandler(lockedWriter{mu: mu, buf: logs}, nil))
 	public, _ := url.Parse("https://qali.example.org")
 	handler := httpapi.New(svc, logger)
-	workspaces := workspaceapp.New(workspaceapp.Config{
+	workspaces = workspaceapp.New(workspaceapp.Config{
 		Store: store, Repo: workspacepg.Repository{}, Accounts: svc, Tokens: tokens, Clock: c, NewID: uuid.NewV7,
 	})
 	srv := httptest.NewServer(httpserver.NewHandler(httpserver.Options{

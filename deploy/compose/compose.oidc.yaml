@@ -1,0 +1,11 @@
+# Opt in to outbound identity-provider traffic for Qali only.
+# Use together with compose.yaml; PostgreSQL stays on its internal network.
+services:
+  qali:
+    networks: [app, data, egress]
+    environment:
+      QALI_OIDC_ALLOW_PRIVATE_ISSUER: ${QALI_OIDC_ALLOW_PRIVATE_ISSUER:-false}
+
+networks:
+  egress:
+    internal: false
